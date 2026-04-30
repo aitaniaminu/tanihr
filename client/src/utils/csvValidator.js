@@ -115,8 +115,9 @@ export async function validateAndImport(rows) {
       }
     }
 
-    // Validate RSA Pin length
-    if (row['RSA Pin'] && (row['RSA Pin'].length < 16 || row['RSA Pin'].length > 18)) {
+    // Validate RSA Pin (optional, but if present must be 16-18 alphanumeric)
+    const rsaPin = row['RSA Pin']?.trim();
+    if (rsaPin && !/^[A-Za-z0-9]{16,18}$/.test(rsaPin)) {
       errors.push('[RSA Pin] must be 16-18 alphanumeric characters');
     }
 
