@@ -1,15 +1,50 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate, Navigate } from 'react-router-dom';
 import { db } from './db/indexedDB';
 import { LayoutDashboard, Users, Calendar, LogOut, FileSpreadsheet, Menu, X } from 'lucide-react';
 import EmployeeList from './pages/Employees/EmployeeList';
 import EmployeeForm from './pages/Employees/EmployeeForm';
 import ImportEmployees from './pages/Employees/ImportEmployees';
+import Login from './pages/Auth/Login';
+import { Routes, Route } from 'react-router-dom';
 
 function App() {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const storedUser = sessionStorage.getItem('tanihr_user');
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
+    }
+    setLoading(false);
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading TaniHR...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <Routes>
+      <Route path="/login" element={user ? <Navigate to="/dashboard" /> : <Login />} />
+      <Route path="/*" element={user ? <MainLayout user={user} setUser={setUser} /> : <Navigate to="/login" />} />
+    </Routes>
+  );
+}
+
+function MainLayout({ user, setUser }) {
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -23,6 +58,12 @@ function App() {
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
+
+  const handleLogout = () => {
+    sessionStorage.removeItem('tanihr_user');
+    setUser(null);
+    navigate('/login');
+  };
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -43,7 +84,7 @@ function App() {
 
     switch (currentPage) {
       case 'dashboard':
-        return <Dashboard />;
+        return <Dashboard onNavigate={setCurrentPage} />;
       case 'employees':
         return (
           <EmployeeList 
@@ -56,7 +97,7 @@ function App() {
       case 'leave':
         return <div className="p-6"><h1 className="text-2xl font-bold">Leave Management (Coming Soon)</h1></div>;
       default:
-        return <Dashboard />;
+        return <Dashboard onNavigate={setCurrentPage} />;
     }
   };
 
@@ -93,7 +134,14 @@ function App() {
         </nav>
 
         <div className="p-2 border-t border-green-700">
-          <button className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-green-700 transition-colors">
+          <div className={`px-3 py-2 mb-2 ${sidebarOpen ? 'text-sm' : 'text-xs'} text-green-200`}>
+            {sidebarOpen && <p className="font-medium">{user.fullName}</p>}
+            <p className="opacity-75 capitalize">{user.role}</p>
+          </div>
+          <button 
+            onClick={handleLogout}
+            className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-green-700 transition-colors"
+          >
             <LogOut size={20} />
             {sidebarOpen && <span>Logout</span>}
           </button>
@@ -115,7 +163,7 @@ function App() {
   );
 }
 
-function Dashboard() {
+function Dashboard({ onNavigate }) {
   const [stats, setStats] = useState({
     totalEmployees: 0,
     activeEmployees: 0,
@@ -150,14 +198,20 @@ function Dashboard() {
 
       <div className="bg-white rounded-lg shadow p-6">
         <h2 className="text-xl font-semibold mb-4">Quick Actions</h2>
-        <div className="flex gap-4">
-          <button className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors">
+        <div className="flex gap-4 flex-wrap">
+          <button 
+            onClick={() => onNavigate('employees')}
+            className="bg-primary text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors shadow-md font-medium"
+          >
             Add New Employee
           </button>
-          <button className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors">
+          <button 
+            onClick={() => onNavigate('import')}
+            className="bg-gray-200 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-300 transition-colors shadow-md font-medium"
+          >
             Import CSV
           </button>
-          <button className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors">
+          <button className="bg-gray-200 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-300 transition-colors shadow-md font-medium">
             Generate Report
           </button>
         </div>
