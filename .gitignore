@@ -3,8 +3,7 @@ node_modules/
 
 # Build artifacts
 dist/
-*.css
-client/*.html
+client/dist/
 
 # Environment variables
 .env
