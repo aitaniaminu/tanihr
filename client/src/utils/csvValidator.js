@@ -12,7 +12,9 @@ const CSV_HEADERS = [
 ];
 
 export function downloadTemplate() {
-  const csv = Papa.unparse([CSV_HEADERS]);
+  // Create proper CSV header row by joining with commas
+  const headerRow = CSV_HEADERS.join(',');
+  const csv = headerRow;
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
