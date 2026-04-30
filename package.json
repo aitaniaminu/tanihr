@@ -2,7 +2,10 @@
   "name": "tanihr",
   "version": "1.0.0",
   "scripts": {
-    "build": "cd client && npm install && npm run build",
-    "install": "cd client && npm install"
+    "build": "cd client && npm ci && npm run build",
+    "install": "cd client && npm ci"
+  },
+  "engines": {
+    "node": "18.x"
   }
 }
