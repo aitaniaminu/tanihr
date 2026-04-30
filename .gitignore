@@ -1,10 +1,8 @@
-```
 # Dependencies
 node_modules/
 
 # Build artifacts
 dist/
-*.js
 *.css
 *.html
 
@@ -30,5 +28,3 @@ package-lock.json
 
 # Vite
 .vite/
-
-```
