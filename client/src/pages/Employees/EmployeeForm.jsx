@@ -1,12 +1,30 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../../db/indexedDB';
-import { ArrowLeft, Save } from 'lucide-react';
-import { formatDDMMYYYY, parseDDMMYYYY, toISODate, calculateRetirementDate, getRetirementStatus, calculateAge, isAtLeast18Years } from '../../utils/dateHelpers';
-import { nigerianStates, getLGAsForState, getGeoPoliticalZone, defaultPFAs, defaultDepartments, defaultRanks, defaultSalaryStructures } from '../../data/nigerianData';
+import { ArrowLeft, Save, Camera, X } from 'lucide-react';
+import {
+  formatDDMMYYYY,
+  parseDDMMYYYY,
+  toISODate,
+  calculateRetirementDate,
+  getRetirementStatus,
+  calculateAge,
+  isAtLeast18Years,
+} from '../../utils/dateHelpers';
+import {
+  nigerianStates,
+  getLGAsForState,
+  getGeoPoliticalZone,
+  defaultPFAs,
+  defaultDepartments,
+  defaultRanks,
+  defaultSalaryStructures,
+} from '../../data/nigerianData';
 
-const EmployeeForm = ({ employee, onBack }) => {
-  const isEdit = !!employee?.id;
-  
+const EmployeeForm = ({ employee, employeeId, onBack }) => {
+  const isEdit = !!employeeId || !!employee?.id;
+  const [loading, setLoading] = useState(isEdit);
+  const [fetchError, setFetchError] = useState(null);
+
   const [formData, setFormData] = useState({
     fileNumber: '',
     ippisNumber: '',
@@ -37,7 +55,7 @@ const EmployeeForm = ({ employee, onBack }) => {
     location: '',
     qualification: '',
     natureOfJob: '',
-    salaryStructure: ''
+    salaryStructure: '',
   });
 
   const [errors, setErrors] = useState({});
@@ -50,13 +68,19 @@ const EmployeeForm = ({ employee, onBack }) => {
     retirementDate: '',
     retirementStatus: 'Active',
     age: '',
-    yearsOfService: ''
+    yearsOfService: '',
   });
+  const [avatarPreview, setAvatarPreview] = useState('');
+
+  const MAX_AVATAR_SIZE = 500 * 1024; // 500KB
 
   useEffect(() => {
     loadReferenceData();
     if (employee?.id) {
       loadEmployeeData();
+      setLoading(false);
+    } else if (employeeId) {
+      fetchEmployeeById(employeeId);
     }
   }, []);
 
@@ -65,7 +89,7 @@ const EmployeeForm = ({ employee, onBack }) => {
       setLgas(getLGAsForState(formData.state));
       const zone = getGeoPoliticalZone(formData.state);
       if (!formData.geopoliticalZone && zone) {
-        setFormData(prev => ({ ...prev, geopoliticalZone: zone }));
+        setFormData((prev) => ({ ...prev, geopoliticalZone: zone }));
       }
     }
   }, [formData.state]);
@@ -79,13 +103,62 @@ const EmployeeForm = ({ employee, onBack }) => {
       db.departments.toArray(),
       db.ranks.toArray(),
       db.pfas.toArray(),
-      db.salaryStructures.toArray()
+      db.salaryStructures.toArray(),
     ]);
-    
-    setDepartments(depts.map(d => d.name));
-    setRanks(rks.map(r => r.name));
-    setPfas(pfAs.map(p => p.name));
-    setSalaryStructures(salStructs.map(s => s.name));
+
+    setDepartments(depts.map((d) => d.name));
+    setRanks(rks.map((r) => r.name));
+    setPfas(pfAs.map((p) => p.name));
+    setSalaryStructures(salStructs.map((s) => s.name));
+  };
+
+  const fetchEmployeeById = async (id) => {
+    try {
+      const emp = await db.employees.get(parseInt(id));
+      if (!emp) {
+        setFetchError('Employee not found');
+        setLoading(false);
+        return;
+      }
+      setFormData({
+        fileNumber: emp.fileNumber || '',
+        ippisNumber: emp.ippisNumber || '',
+        psn: emp.psn || '',
+        surname: emp.surname || '',
+        firstName: emp.firstName || '',
+        middleName: emp.middleName || '',
+        dateOfBirth: formatDDMMYYYY(emp.dateOfBirth),
+        sex: emp.sex || '',
+        phone: emp.phone || '',
+        department: emp.department || '',
+        cadre: emp.cadre || '',
+        rank: emp.rank || '',
+        salaryGradeLevel: emp.salaryGradeLevel || '',
+        step: emp.step?.toString() || '',
+        appointmentType: emp.appointmentType || 'Permanent',
+        dateOfFirstAppointment: formatDDMMYYYY(emp.dateOfFirstAppointment),
+        dateOfConfirmation: formatDDMMYYYY(emp.dateOfConfirmation),
+        dateOfPresentAppointment: formatDDMMYYYY(emp.dateOfPresentAppointment),
+        pfaName: emp.pfaName || '',
+        rsaPin: emp.rsaPin || '',
+        email: emp.email || '',
+        state: emp.state || '',
+        lga: emp.lga || '',
+        geopoliticalZone: emp.geopoliticalZone || '',
+        remark: emp.remark || '',
+        status: emp.status || 'Active',
+        location: emp.location || '',
+        qualification: emp.qualification || '',
+        natureOfJob: emp.natureOfJob || '',
+        salaryStructure: emp.salaryStructure || '',
+      });
+      setAvatarPreview(emp.avatar || '');
+    } catch (error) {
+      console.error('Error loading employee:', error);
+      setFetchError('Failed to load employee data');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const loadEmployeeData = () => {
@@ -119,8 +192,35 @@ const EmployeeForm = ({ employee, onBack }) => {
       location: employee.location || '',
       qualification: employee.qualification || '',
       natureOfJob: employee.natureOfJob || '',
-      salaryStructure: employee.salaryStructure || ''
+      salaryStructure: employee.salaryStructure || '',
     });
+    setAvatarPreview(employee.avatar || '');
+  };
+
+  const handleAvatarUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file.');
+      return;
+    }
+
+    if (file.size > MAX_AVATAR_SIZE) {
+      alert('Image must be smaller than 500KB.');
+      e.target.value = '';
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setAvatarPreview(ev.target.result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const removeAvatar = () => {
+    setAvatarPreview('');
   };
 
   const computeRetirementAndAge = () => {
@@ -129,7 +229,7 @@ const EmployeeForm = ({ employee, onBack }) => {
 
     if (dob) {
       const age = calculateAge(dob);
-      setComputedFields(prev => ({ ...prev, age: age?.toString() || '' }));
+      setComputedFields((prev) => ({ ...prev, age: age?.toString() || '' }));
     }
 
     if (firstAppt) {
@@ -138,25 +238,25 @@ const EmployeeForm = ({ employee, onBack }) => {
       let years = today.getFullYear() - startD.getFullYear();
       const monthDiff = today.getMonth() - startD.getMonth();
       if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < startD.getDate())) years--;
-      setComputedFields(prev => ({ ...prev, yearsOfService: Math.max(0, years)?.toString() || '' }));
+      setComputedFields((prev) => ({ ...prev, yearsOfService: Math.max(0, years)?.toString() || '' }));
     }
 
     if (dob && firstAppt) {
       const retDate = calculateRetirementDate(formData.dateOfBirth, formData.dateOfFirstAppointment);
       const retStatus = getRetirementStatus(retDate);
-      setComputedFields(prev => ({
+      setComputedFields((prev) => ({
         ...prev,
         retirementDate: formatDDMMYYYY(retDate),
-        retirementStatus: retStatus
+        retirementStatus: retStatus,
       }));
     }
   };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
     if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
+      setErrors((prev) => ({ ...prev, [name]: '' }));
     }
   };
 
@@ -166,7 +266,7 @@ const EmployeeForm = ({ employee, onBack }) => {
     if (!formData.fileNumber.trim()) newErrors.fileNumber = 'File Number is required';
     if (!formData.surname.trim()) newErrors.surname = 'Surname is required';
     if (!formData.firstName.trim()) newErrors.firstName = 'First Name is required';
-    
+
     const dob = parseDDMMYYYY(formData.dateOfBirth);
     if (!dob) {
       newErrors.dateOfBirth = 'Valid Date of Birth is required (DD-MM-YYYY)';
@@ -179,7 +279,7 @@ const EmployeeForm = ({ employee, onBack }) => {
     if (!formData.rank.trim()) newErrors.rank = 'Rank is required';
     if (!formData.salaryGradeLevel.trim()) newErrors.salaryGradeLevel = 'Salary Grade Level is required';
     if (!formData.appointmentType) newErrors.appointmentType = 'Type of Appointment is required';
-    
+
     const firstAppt = parseDDMMYYYY(formData.dateOfFirstAppointment);
     if (!firstAppt) {
       newErrors.dateOfFirstAppointment = 'Valid Date of First Appointment is required (DD-MM-YYYY)';
@@ -199,10 +299,6 @@ const EmployeeForm = ({ employee, onBack }) => {
     if (!formData.lga.trim()) newErrors.lga = 'LGA is required';
     if (!formData.status) newErrors.status = 'Status is required';
 
-    if (formData.rsaPin && (formData.rsaPin.length < 16 || formData.rsaPin.length > 18)) {
-      newErrors.rsaPin = 'RSA Pin must be 16-18 characters';
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -211,8 +307,15 @@ const EmployeeForm = ({ employee, onBack }) => {
     e.preventDefault();
     if (!validate()) return;
 
+    const updateId = employee?.id || employeeId;
+    if (isEdit && !updateId) {
+      alert('Employee ID is missing. Please refresh the page and try again.');
+      return;
+    }
+
     const employeeData = {
       ...formData,
+      avatar: avatarPreview || null,
       step: formData.step ? parseInt(formData.step) : null,
       dateOfBirth: toISODate(formData.dateOfBirth),
       dateOfFirstAppointment: toISODate(formData.dateOfFirstAppointment),
@@ -220,283 +323,583 @@ const EmployeeForm = ({ employee, onBack }) => {
       dateOfPresentAppointment: toISODate(formData.dateOfPresentAppointment),
       retirementDate: computedFields.retirementDate ? toISODate(computedFields.retirementDate) : null,
       retirementStatus: computedFields.retirementStatus,
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
     };
 
     try {
-      // Auto-create references if they don't exist
-      if (formData.department && !departments.includes(formData.department)) {
-        await db.departments.add({ name: formData.department });
+      // Auto-create references if they don't exist (best effort)
+      try {
+        if (formData.department && !departments.includes(formData.department)) {
+          await db.departments.add({ name: formData.department });
+        }
+      } catch {
+        // Already exists or can be created later
       }
-      if (formData.rank && !ranks.includes(formData.rank)) {
-        await db.ranks.add({ name: formData.rank });
+      try {
+        if (formData.rank && !ranks.includes(formData.rank)) {
+          await db.ranks.add({ name: formData.rank });
+        }
+      } catch {
+        // Already exists or can be created later
       }
-      if (formData.pfaName && !pfas.includes(formData.pfaName)) {
-        await db.pfas.add({ name: formData.pfaName });
+      try {
+        if (formData.pfaName && !pfas.includes(formData.pfaName)) {
+          await db.pfas.add({ name: formData.pfaName });
+        }
+      } catch {
+        // Already exists or can be created later
       }
-      if (formData.salaryStructure && !salaryStructures.includes(formData.salaryStructure)) {
-        await db.salaryStructures.add({ name: formData.salaryStructure });
+      try {
+        if (formData.salaryStructure && !salaryStructures.includes(formData.salaryStructure)) {
+          await db.salaryStructures.add({ name: formData.salaryStructure });
+        }
+      } catch {
+        // Already exists or can be created later
       }
 
       if (isEdit) {
-        await db.employees.update(employee.id, employeeData);
+        await db.employees.update(updateId, employeeData);
       } else {
         await db.employees.add({
           ...employeeData,
-          createdAt: new Date().toISOString()
+          createdAt: new Date().toISOString(),
         });
       }
 
       onBack();
     } catch (error) {
       console.error('Error saving employee:', error);
-      alert('Error saving employee. Please try again.');
+      alert(`Error saving employee: ${error.message}`);
     }
   };
 
-  const inputClass = (fieldName) => `w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary ${errors[fieldName] ? 'border-red-500' : ''}`;
-  const labelClass = "block text-sm font-medium text-gray-700 mb-1";
+  const inputClass = (fieldName) =>
+    `w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary ${errors[fieldName] ? 'border-red-500' : ''}`;
+  const labelClass = 'block text-sm font-medium text-gray-700 mb-1';
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      <div className="flex items-center gap-4 mb-6">
-        <button onClick={onBack} className="text-gray-600 hover:text-gray-800">
-          <ArrowLeft size={24} />
-        </button>
-        <h1 className="text-3xl font-bold text-gray-800">{isEdit ? 'Edit Employee' : 'Add New Employee'}</h1>
-      </div>
-
-      {computedFields.retirementStatus === 'Approaching' && (
-        <div className="bg-orange-100 border-l-4 border-orange-500 p-4 mb-6">
-          <p className="text-orange-700">⚠️ This employee is approaching retirement ({computedFields.retirementDate})</p>
+      {loading && (
+        <div className="flex items-center justify-center min-h-screen">
+          <p className="text-gray-600 text-lg">Loading employee data...</p>
         </div>
       )}
-
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Personal Information */}
-        <section className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold mb-4 text-primary">Personal Information</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className={labelClass}>Surname *</label>
-              <input type="text" name="surname" value={formData.surname} onChange={handleChange} className={inputClass('surname')} />
-              {errors.surname && <p className="text-red-500 text-xs mt-1">{errors.surname}</p>}
-            </div>
-            <div>
-              <label className={labelClass}>First Name *</label>
-              <input type="text" name="firstName" value={formData.firstName} onChange={handleChange} className={inputClass('firstName')} />
-              {errors.firstName && <p className="text-red-500 text-xs mt-1">{errors.firstName}</p>}
-            </div>
-            <div>
-              <label className={labelClass}>Middle Name</label>
-              <input type="text" name="middleName" value={formData.middleName} onChange={handleChange} className={inputClass('middleName')} />
-            </div>
-            <div>
-              <label className={labelClass}>Date of Birth *</label>
-              <input type="text" name="dateOfBirth" value={formData.dateOfBirth} onChange={handleChange} placeholder="DD-MM-YYYY" className={inputClass('dateOfBirth')} />
-              {errors.dateOfBirth && <p className="text-red-500 text-xs mt-1">{errors.dateOfBirth}</p>}
-            </div>
-            <div>
-              <label className={labelClass}>Sex *</label>
-              <select name="sex" value={formData.sex} onChange={handleChange} className={inputClass('sex')}>
-                <option value="">Select</option>
-                <option value="Male">Male</option>
-                <option value="Female">Female</option>
-                <option value="Other">Other</option>
-              </select>
-              {errors.sex && <p className="text-red-500 text-xs mt-1">{errors.sex}</p>}
-            </div>
-            <div>
-              <label className={labelClass}>Phone</label>
-              <input type="text" name="phone" value={formData.phone} onChange={handleChange} className={inputClass('phone')} />
-            </div>
-            <div>
-              <label className={labelClass}>Email</label>
-              <input type="email" name="email" value={formData.email} onChange={handleChange} className={inputClass('email')} />
-            </div>
-            <div>
-              <label className={labelClass}>Computed Age</label>
-              <input type="text" value={computedFields.age} disabled className="w-full px-3 py-2 border rounded-lg bg-gray-100" />
-            </div>
-          </div>
-        </section>
-
-        {/* Service Information */}
-        <section className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold mb-4 text-primary">Service & Appointment Information</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className={labelClass}>File Number *</label>
-              <input type="text" name="fileNumber" value={formData.fileNumber} onChange={handleChange} className={inputClass('fileNumber')} />
-              {errors.fileNumber && <p className="text-red-500 text-xs mt-1">{errors.fileNumber}</p>}
-            </div>
-            <div>
-              <label className={labelClass}>IPPIS Number</label>
-              <input type="text" name="ippisNumber" value={formData.ippisNumber} onChange={handleChange} className={inputClass('ippisNumber')} />
-            </div>
-            <div>
-              <label className={labelClass}>PSN</label>
-              <input type="text" name="psn" value={formData.psn} onChange={handleChange} className={inputClass('psn')} />
-            </div>
-            <div>
-              <label className={labelClass}>Department *</label>
-              <input type="text" name="department" value={formData.department} onChange={handleChange} list="departments-list" className={inputClass('department')} />
-              <datalist id="departments-list">
-                {departments.map(d => <option key={d} value={d} />)}
-              </datalist>
-              {errors.department && <p className="text-red-500 text-xs mt-1">{errors.department}</p>}
-            </div>
-            <div>
-              <label className={labelClass}>Cadre</label>
-              <input type="text" name="cadre" value={formData.cadre} onChange={handleChange} className={inputClass('cadre')} />
-            </div>
-            <div>
-              <label className={labelClass}>Rank *</label>
-              <input type="text" name="rank" value={formData.rank} onChange={handleChange} list="ranks-list" className={inputClass('rank')} />
-              <datalist id="ranks-list">
-                {ranks.map(r => <option key={r} value={r} />)}
-              </datalist>
-              {errors.rank && <p className="text-red-500 text-xs mt-1">{errors.rank}</p>}
-            </div>
-            <div>
-              <label className={labelClass}>Salary Grade Level *</label>
-              <input type="text" name="salaryGradeLevel" value={formData.salaryGradeLevel} onChange={handleChange} className={inputClass('salaryGradeLevel')} />
-              {errors.salaryGradeLevel && <p className="text-red-500 text-xs mt-1">{errors.salaryGradeLevel}</p>}
-            </div>
-            <div>
-              <label className={labelClass}>Step</label>
-              <input type="number" name="step" value={formData.step} onChange={handleChange} min="1" max="5" className={inputClass('step')} />
-            </div>
-            <div>
-              <label className={labelClass}>Type of Appointment *</label>
-              <select name="appointmentType" value={formData.appointmentType} onChange={handleChange} className={inputClass('appointmentType')}>
-                <option value="Permanent">Permanent</option>
-                <option value="Contract">Contract</option>
-                <option value="Temporary">Temporary</option>
-              </select>
-              {errors.appointmentType && <p className="text-red-500 text-xs mt-1">{errors.appointmentType}</p>}
-            </div>
-            <div>
-              <label className={labelClass}>Date of First Appointment *</label>
-              <input type="text" name="dateOfFirstAppointment" value={formData.dateOfFirstAppointment} onChange={handleChange} placeholder="DD-MM-YYYY" className={inputClass('dateOfFirstAppointment')} />
-              {errors.dateOfFirstAppointment && <p className="text-red-500 text-xs mt-1">{errors.dateOfFirstAppointment}</p>}
-            </div>
-            <div>
-              <label className={labelClass}>Date of Confirmation</label>
-              <input type="text" name="dateOfConfirmation" value={formData.dateOfConfirmation} onChange={handleChange} placeholder="DD-MM-YYYY" className={inputClass('dateOfConfirmation')} />
-            </div>
-            <div>
-              <label className={labelClass}>Date of Present Appointment *</label>
-              <input type="text" name="dateOfPresentAppointment" value={formData.dateOfPresentAppointment} onChange={handleChange} placeholder="DD-MM-YYYY" className={inputClass('dateOfPresentAppointment')} />
-              {errors.dateOfPresentAppointment && <p className="text-red-500 text-xs mt-1">{errors.dateOfPresentAppointment}</p>}
-            </div>
-            <div>
-              <label className={labelClass}>Status *</label>
-              <select name="status" value={formData.status} onChange={handleChange} className={inputClass('status')}>
-                <option value="Active">Active</option>
-                <option value="Suspended">Suspended</option>
-                <option value="Retired">Retired</option>
-                <option value="Resigned">Resigned</option>
-              </select>
-              {errors.status && <p className="text-red-500 text-xs mt-1">{errors.status}</p>}
-            </div>
-            <div>
-              <label className={labelClass}>Years of Service</label>
-              <input type="text" value={computedFields.yearsOfService} disabled className="w-full px-3 py-2 border rounded-lg bg-gray-100" />
-            </div>
-            <div>
-              <label className={labelClass}>Retirement Date</label>
-              <input type="text" value={computedFields.retirementDate} disabled className="w-full px-3 py-2 border rounded-lg bg-gray-100" />
-            </div>
-            <div>
-              <label className={labelClass}>Retirement Status</label>
-              <input type="text" value={computedFields.retirementStatus} disabled className={`w-full px-3 py-2 border rounded-lg font-semibold ${
-                computedFields.retirementStatus === 'Retired' ? 'bg-red-100 text-red-800' :
-                computedFields.retirementStatus === 'Approaching' ? 'bg-orange-100 text-orange-800' :
-                'bg-green-100 text-green-800'
-              }`} />
-            </div>
-          </div>
-        </section>
-
-        {/* Pension & Origin */}
-        <section className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold mb-4 text-primary">Pension & Origin Information</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className={labelClass}>PFA Name *</label>
-              <input type="text" name="pfaName" value={formData.pfaName} onChange={handleChange} list="pfas-list" className={inputClass('pfaName')} />
-              <datalist id="pfas-list">
-                {pfas.map(p => <option key={p} value={p} />)}
-              </datalist>
-              {errors.pfaName && <p className="text-red-500 text-xs mt-1">{errors.pfaName}</p>}
-            </div>
-            <div>
-              <label className={labelClass}>RSA Pin</label>
-              <input type="text" name="rsaPin" value={formData.rsaPin} onChange={handleChange} className={inputClass('rsaPin')} />
-              {errors.rsaPin && <p className="text-red-500 text-xs mt-1">{errors.rsaPin}</p>}
-            </div>
-            <div>
-              <label className={labelClass}>State *</label>
-              <select name="state" value={formData.state} onChange={handleChange} className={inputClass('state')}>
-                <option value="">Select State</option>
-                {nigerianStates.map(s => <option key={s.name} value={s.name}>{s.name}</option>)}
-              </select>
-              {errors.state && <p className="text-red-500 text-xs mt-1">{errors.state}</p>}
-            </div>
-            <div>
-              <label className={labelClass}>LGA *</label>
-              <select name="lga" value={formData.lga} onChange={handleChange} className={inputClass('lga')} disabled={!formData.state}>
-                <option value="">Select LGA</option>
-                {lgas.map(l => <option key={l} value={l}>{l}</option>)}
-              </select>
-              {errors.lga && <p className="text-red-500 text-xs mt-1">{errors.lga}</p>}
-            </div>
-            <div>
-              <label className={labelClass}>Geopolitical Zone</label>
-              <input type="text" name="geopoliticalZone" value={formData.geopoliticalZone} onChange={handleChange} className={inputClass('geopoliticalZone')} />
-            </div>
-          </div>
-        </section>
-
-        {/* Additional Info */}
-        <section className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold mb-4 text-primary">Additional Information</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className={labelClass}>Location (Duty Station)</label>
-              <input type="text" name="location" value={formData.location} onChange={handleChange} className={inputClass('location')} />
-            </div>
-            <div>
-              <label className={labelClass}>Qualification</label>
-              <input type="text" name="qualification" value={formData.qualification} onChange={handleChange} className={inputClass('qualification')} />
-            </div>
-            <div>
-              <label className={labelClass}>Nature of Job</label>
-              <input type="text" name="natureOfJob" value={formData.natureOfJob} onChange={handleChange} className={inputClass('natureOfJob')} />
-            </div>
-            <div>
-              <label className={labelClass}>Salary Structure</label>
-              <input type="text" name="salaryStructure" value={formData.salaryStructure} onChange={handleChange} list="salary-structures-list" className={inputClass('salaryStructure')} />
-              <datalist id="salary-structures-list">
-                {salaryStructures.map(s => <option key={s} value={s} />)}
-              </datalist>
-            </div>
-            <div className="md:col-span-3">
-              <label className={labelClass}>Remark</label>
-              <textarea name="remark" value={formData.remark} onChange={handleChange} rows="3" className={inputClass('remark')} />
-            </div>
-          </div>
-        </section>
-
-        <div className="flex justify-end gap-4">
-          <button type="button" onClick={onBack} className="px-6 py-2 border rounded-lg hover:bg-gray-50">Cancel</button>
-          <button type="submit" className="bg-primary text-white px-6 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2">
-            <Save size={20} />
-            {isEdit ? 'Update Employee' : 'Create Employee'}
+      {fetchError && (
+        <div className="bg-red-100 border-l-4 border-red-500 p-4 mb-6">
+          <p className="text-red-700">{fetchError}</p>
+          <button onClick={onBack} className="mt-2 text-red-600 underline">
+            Go back
           </button>
         </div>
-      </form>
+      )}
+      {!loading && !fetchError && (
+        <>
+          <div className="flex items-center gap-4 mb-6">
+            <button onClick={onBack} className="text-gray-600 hover:text-gray-800">
+              <ArrowLeft size={24} />
+            </button>
+            <h1 className="text-3xl font-bold text-gray-800">{isEdit ? 'Edit Employee' : 'Add New Employee'}</h1>
+          </div>
+
+          {computedFields.retirementStatus === 'Approaching' && (
+            <div className="bg-orange-100 border-l-4 border-orange-500 p-4 mb-6">
+              <p className="text-orange-700">
+                ⚠️ This employee is approaching retirement ({computedFields.retirementDate})
+              </p>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Personal Information */}
+            <section className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-xl font-semibold mb-4 text-primary">Personal Information</h2>
+
+              {/* Avatar upload */}
+              <div className="flex items-center gap-6 mb-6 pb-6 border-b">
+                <div className="relative">
+                  {avatarPreview ? (
+                    <div className="relative">
+                      <img
+                        src={avatarPreview}
+                        alt="Employee avatar preview"
+                        className="w-24 h-24 rounded-full object-cover border-2 border-gray-200"
+                      />
+                      <button
+                        type="button"
+                        onClick={removeAvatar}
+                        className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600"
+                        aria-label="Remove photo"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="w-24 h-24 rounded-full bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center">
+                      <Camera size={28} className="text-gray-400" />
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1 cursor-pointer bg-primary text-white px-4 py-2 rounded-lg hover:bg-green-700 inline-block">
+                    Upload Photo
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleAvatarUpload}
+                      className="hidden"
+                      aria-label="Upload photo"
+                    />
+                  </label>
+                  <p className="text-xs text-gray-500 mt-1">JPG, PNG or GIF. Max 500KB.</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className={labelClass}>Surname *</label>
+                  <input
+                    type="text"
+                    name="surname"
+                    value={formData.surname}
+                    onChange={handleChange}
+                    className={inputClass('surname')}
+                  />
+                  {errors.surname && <p className="text-red-500 text-xs mt-1">{errors.surname}</p>}
+                </div>
+                <div>
+                  <label className={labelClass}>First Name *</label>
+                  <input
+                    type="text"
+                    name="firstName"
+                    value={formData.firstName}
+                    onChange={handleChange}
+                    className={inputClass('firstName')}
+                  />
+                  {errors.firstName && <p className="text-red-500 text-xs mt-1">{errors.firstName}</p>}
+                </div>
+                <div>
+                  <label className={labelClass}>Middle Name</label>
+                  <input
+                    type="text"
+                    name="middleName"
+                    value={formData.middleName}
+                    onChange={handleChange}
+                    className={inputClass('middleName')}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Date of Birth *</label>
+                  <input
+                    type="text"
+                    name="dateOfBirth"
+                    value={formData.dateOfBirth}
+                    onChange={handleChange}
+                    placeholder="DD-MM-YYYY"
+                    className={inputClass('dateOfBirth')}
+                  />
+                  {errors.dateOfBirth && <p className="text-red-500 text-xs mt-1">{errors.dateOfBirth}</p>}
+                </div>
+                <div>
+                  <label className={labelClass}>Sex *</label>
+                  <select name="sex" value={formData.sex} onChange={handleChange} className={inputClass('sex')}>
+                    <option value="">Select</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                  {errors.sex && <p className="text-red-500 text-xs mt-1">{errors.sex}</p>}
+                </div>
+                <div>
+                  <label className={labelClass}>Phone</label>
+                  <input
+                    type="text"
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleChange}
+                    className={inputClass('phone')}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Email</label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    className={inputClass('email')}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Computed Age</label>
+                  <input
+                    type="text"
+                    value={computedFields.age}
+                    disabled
+                    className="w-full px-3 py-2 border rounded-lg bg-gray-100"
+                  />
+                </div>
+              </div>
+            </section>
+
+            {/* Service Information */}
+            <section className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-xl font-semibold mb-4 text-primary">Service & Appointment Information</h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className={labelClass}>File Number *</label>
+                  <input
+                    type="text"
+                    name="fileNumber"
+                    value={formData.fileNumber}
+                    onChange={handleChange}
+                    className={inputClass('fileNumber')}
+                  />
+                  {errors.fileNumber && <p className="text-red-500 text-xs mt-1">{errors.fileNumber}</p>}
+                </div>
+                <div>
+                  <label className={labelClass}>IPPIS Number</label>
+                  <input
+                    type="text"
+                    name="ippisNumber"
+                    value={formData.ippisNumber}
+                    onChange={handleChange}
+                    className={inputClass('ippisNumber')}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>PSN</label>
+                  <input
+                    type="text"
+                    name="psn"
+                    value={formData.psn}
+                    onChange={handleChange}
+                    className={inputClass('psn')}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Department *</label>
+                  <input
+                    type="text"
+                    name="department"
+                    value={formData.department}
+                    onChange={handleChange}
+                    list="departments-list"
+                    className={inputClass('department')}
+                  />
+                  <datalist id="departments-list">
+                    {departments.map((d) => (
+                      <option key={d} value={d} />
+                    ))}
+                  </datalist>
+                  {errors.department && <p className="text-red-500 text-xs mt-1">{errors.department}</p>}
+                </div>
+                <div>
+                  <label className={labelClass}>Cadre</label>
+                  <input
+                    type="text"
+                    name="cadre"
+                    value={formData.cadre}
+                    onChange={handleChange}
+                    className={inputClass('cadre')}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Rank *</label>
+                  <input
+                    type="text"
+                    name="rank"
+                    value={formData.rank}
+                    onChange={handleChange}
+                    list="ranks-list"
+                    className={inputClass('rank')}
+                  />
+                  <datalist id="ranks-list">
+                    {ranks.map((r) => (
+                      <option key={r} value={r} />
+                    ))}
+                  </datalist>
+                  {errors.rank && <p className="text-red-500 text-xs mt-1">{errors.rank}</p>}
+                </div>
+                <div>
+                  <label className={labelClass}>Salary Grade Level *</label>
+                  <input
+                    type="text"
+                    name="salaryGradeLevel"
+                    value={formData.salaryGradeLevel}
+                    onChange={handleChange}
+                    className={inputClass('salaryGradeLevel')}
+                  />
+                  {errors.salaryGradeLevel && <p className="text-red-500 text-xs mt-1">{errors.salaryGradeLevel}</p>}
+                </div>
+                <div>
+                  <label className={labelClass}>Step</label>
+                  <input
+                    type="number"
+                    name="step"
+                    value={formData.step}
+                    onChange={handleChange}
+                    min="1"
+                    max="5"
+                    className={inputClass('step')}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Type of Appointment *</label>
+                  <select
+                    name="appointmentType"
+                    value={formData.appointmentType}
+                    onChange={handleChange}
+                    className={inputClass('appointmentType')}
+                  >
+                    <option value="Permanent">Permanent</option>
+                    <option value="Contract">Contract</option>
+                    <option value="Temporary">Temporary</option>
+                  </select>
+                  {errors.appointmentType && <p className="text-red-500 text-xs mt-1">{errors.appointmentType}</p>}
+                </div>
+                <div>
+                  <label className={labelClass}>Date of First Appointment *</label>
+                  <input
+                    type="text"
+                    name="dateOfFirstAppointment"
+                    value={formData.dateOfFirstAppointment}
+                    onChange={handleChange}
+                    placeholder="DD-MM-YYYY"
+                    className={inputClass('dateOfFirstAppointment')}
+                  />
+                  {errors.dateOfFirstAppointment && (
+                    <p className="text-red-500 text-xs mt-1">{errors.dateOfFirstAppointment}</p>
+                  )}
+                </div>
+                <div>
+                  <label className={labelClass}>Date of Confirmation</label>
+                  <input
+                    type="text"
+                    name="dateOfConfirmation"
+                    value={formData.dateOfConfirmation}
+                    onChange={handleChange}
+                    placeholder="DD-MM-YYYY"
+                    className={inputClass('dateOfConfirmation')}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Date of Present Appointment *</label>
+                  <input
+                    type="text"
+                    name="dateOfPresentAppointment"
+                    value={formData.dateOfPresentAppointment}
+                    onChange={handleChange}
+                    placeholder="DD-MM-YYYY"
+                    className={inputClass('dateOfPresentAppointment')}
+                  />
+                  {errors.dateOfPresentAppointment && (
+                    <p className="text-red-500 text-xs mt-1">{errors.dateOfPresentAppointment}</p>
+                  )}
+                </div>
+                <div>
+                  <label className={labelClass}>Status *</label>
+                  <select
+                    name="status"
+                    value={formData.status}
+                    onChange={handleChange}
+                    className={inputClass('status')}
+                  >
+                    <option value="Active">Active</option>
+                    <option value="Suspended">Suspended</option>
+                    <option value="Retired">Retired</option>
+                    <option value="Resigned">Resigned</option>
+                  </select>
+                  {errors.status && <p className="text-red-500 text-xs mt-1">{errors.status}</p>}
+                </div>
+                <div>
+                  <label className={labelClass}>Years of Service</label>
+                  <input
+                    type="text"
+                    value={computedFields.yearsOfService}
+                    disabled
+                    className="w-full px-3 py-2 border rounded-lg bg-gray-100"
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Retirement Date</label>
+                  <input
+                    type="text"
+                    value={computedFields.retirementDate}
+                    disabled
+                    className="w-full px-3 py-2 border rounded-lg bg-gray-100"
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Retirement Status</label>
+                  <input
+                    type="text"
+                    value={computedFields.retirementStatus}
+                    disabled
+                    className={`w-full px-3 py-2 border rounded-lg font-semibold ${
+                      computedFields.retirementStatus === 'Retired'
+                        ? 'bg-red-100 text-red-800'
+                        : computedFields.retirementStatus === 'Approaching'
+                          ? 'bg-orange-100 text-orange-800'
+                          : 'bg-green-100 text-green-800'
+                    }`}
+                  />
+                </div>
+              </div>
+            </section>
+
+            {/* Pension & Origin */}
+            <section className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-xl font-semibold mb-4 text-primary">Pension & Origin Information</h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className={labelClass}>PFA Name *</label>
+                  <input
+                    type="text"
+                    name="pfaName"
+                    value={formData.pfaName}
+                    onChange={handleChange}
+                    list="pfas-list"
+                    className={inputClass('pfaName')}
+                  />
+                  <datalist id="pfas-list">
+                    {pfas.map((p) => (
+                      <option key={p} value={p} />
+                    ))}
+                  </datalist>
+                  {errors.pfaName && <p className="text-red-500 text-xs mt-1">{errors.pfaName}</p>}
+                </div>
+                <div>
+                  <label className={labelClass}>RSA Pin</label>
+                  <input
+                    type="text"
+                    name="rsaPin"
+                    value={formData.rsaPin}
+                    onChange={handleChange}
+                    className={inputClass('rsaPin')}
+                  />
+                  {errors.rsaPin && <p className="text-red-500 text-xs mt-1">{errors.rsaPin}</p>}
+                </div>
+                <div>
+                  <label className={labelClass}>State *</label>
+                  <select name="state" value={formData.state} onChange={handleChange} className={inputClass('state')}>
+                    <option value="">Select State</option>
+                    {nigerianStates.map((s) => (
+                      <option key={s.name} value={s.name}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.state && <p className="text-red-500 text-xs mt-1">{errors.state}</p>}
+                </div>
+                <div>
+                  <label className={labelClass}>LGA *</label>
+                  <select
+                    name="lga"
+                    value={formData.lga}
+                    onChange={handleChange}
+                    className={inputClass('lga')}
+                    disabled={!formData.state}
+                  >
+                    <option value="">Select LGA</option>
+                    {lgas.map((l) => (
+                      <option key={l} value={l}>
+                        {l}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.lga && <p className="text-red-500 text-xs mt-1">{errors.lga}</p>}
+                </div>
+                <div>
+                  <label className={labelClass}>Geopolitical Zone</label>
+                  <input
+                    type="text"
+                    name="geopoliticalZone"
+                    value={formData.geopoliticalZone}
+                    onChange={handleChange}
+                    className={inputClass('geopoliticalZone')}
+                  />
+                </div>
+              </div>
+            </section>
+
+            {/* Additional Info */}
+            <section className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-xl font-semibold mb-4 text-primary">Additional Information</h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className={labelClass}>Location (Duty Station)</label>
+                  <input
+                    type="text"
+                    name="location"
+                    value={formData.location}
+                    onChange={handleChange}
+                    className={inputClass('location')}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Qualification</label>
+                  <input
+                    type="text"
+                    name="qualification"
+                    value={formData.qualification}
+                    onChange={handleChange}
+                    className={inputClass('qualification')}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Nature of Job</label>
+                  <input
+                    type="text"
+                    name="natureOfJob"
+                    value={formData.natureOfJob}
+                    onChange={handleChange}
+                    className={inputClass('natureOfJob')}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Salary Structure</label>
+                  <input
+                    type="text"
+                    name="salaryStructure"
+                    value={formData.salaryStructure}
+                    onChange={handleChange}
+                    list="salary-structures-list"
+                    className={inputClass('salaryStructure')}
+                  />
+                  <datalist id="salary-structures-list">
+                    {salaryStructures.map((s) => (
+                      <option key={s} value={s} />
+                    ))}
+                  </datalist>
+                </div>
+                <div className="md:col-span-3">
+                  <label className={labelClass}>Remark</label>
+                  <textarea
+                    name="remark"
+                    value={formData.remark}
+                    onChange={handleChange}
+                    rows="3"
+                    className={inputClass('remark')}
+                  />
+                </div>
+              </div>
+            </section>
+
+            <div className="flex justify-end gap-4">
+              <button type="button" onClick={onBack} className="px-6 py-2 border rounded-lg hover:bg-gray-50">
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="bg-primary text-white px-6 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2"
+              >
+                <Save size={20} />
+                {isEdit ? 'Update Employee' : 'Create Employee'}
+              </button>
+            </div>
+          </form>
+        </>
+      )}
     </div>
   );
 };

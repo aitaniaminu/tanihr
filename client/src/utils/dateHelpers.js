@@ -1,29 +1,52 @@
 // Date format utilities for DD-MM-YYYY handling
 
 /**
- * Parse DD-MM-YYYY string to Date object
- * @param {string} dateString - Date in DD-MM-YYYY format
+ * Parse date string to Date object
+ * Supports: DD-MM-YYYY, DD/MM/YYYY, YYYY-MM-DD, MM/DD/YYYY
+ * @param {string} dateString - Date string in various formats
  * @returns {Date|null} - Date object or null if invalid
  */
 export function parseDDMMYYYY(dateString) {
   if (!dateString) return null;
-  
-  const regex = /^(\d{2})-(\d{2})-(\d{4})$/;
-  const match = dateString.match(regex);
-  
-  if (!match) return null;
-  
-  const [, day, month, year] = match;
-  const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-  
-  // Validate the date is real (e.g., not Feb 30)
-  if (date.getDate() !== parseInt(day) || 
-      date.getMonth() !== parseInt(month) - 1 || 
-      date.getFullYear() !== parseInt(year)) {
-    return null;
+
+  const str = dateString.trim();
+  if (!str) return null;
+
+  // Try DD-MM-YYYY
+  let match = str.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/);
+  if (match) {
+    let [, day, month, year] = match;
+    day = parseInt(day);
+    month = parseInt(month);
+    year = parseInt(year);
+    // If first number > 12, it must be day (DD-MM-YYYY)
+    // If second number > 12, it must be month (MM-DD-YYYY)
+    if (day > 12 && month <= 12) {
+      // Already DD-MM-YYYY
+    } else if (month > 12 && day <= 12) {
+      [day, month] = [month, day]; // Swap
+    }
+    const date = new Date(year, month - 1, day);
+    if (date.getDate() === day && date.getMonth() === month - 1 && date.getFullYear() === year) {
+      return date;
+    }
   }
-  
-  return date;
+
+  // Try YYYY-MM-DD
+  match = str.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})$/);
+  if (match) {
+    const [, year, month, day] = match;
+    const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    if (
+      date.getDate() === parseInt(day) &&
+      date.getMonth() === parseInt(month) - 1 &&
+      date.getFullYear() === parseInt(year)
+    ) {
+      return date;
+    }
+  }
+
+  return null;
 }
 
 /**
@@ -33,15 +56,15 @@ export function parseDDMMYYYY(dateString) {
  */
 export function formatDDMMYYYY(date) {
   if (!date) return '';
-  
+
   const d = typeof date === 'string' ? new Date(date) : date;
-  
+
   if (!(d instanceof Date) || isNaN(d.getTime())) return '';
-  
+
   const day = String(d.getDate()).padStart(2, '0');
   const month = String(d.getMonth() + 1).padStart(2, '0');
   const year = d.getFullYear();
-  
+
   return `${day}-${month}-${year}`;
 }
 
@@ -52,16 +75,16 @@ export function formatDDMMYYYY(date) {
  */
 export function toISODate(date) {
   if (!date) return null;
-  
+
   let d;
   if (typeof date === 'string') {
     d = parseDDMMYYYY(date);
   } else {
     d = date instanceof Date ? date : new Date(date);
   }
-  
+
   if (!d || isNaN(d.getTime())) return null;
-  
+
   return d.toISOString().split('T')[0];
 }
 
@@ -73,16 +96,16 @@ export function toISODate(date) {
 export function calculateAge(dob) {
   const birthDate = typeof dob === 'string' ? parseDDMMYYYY(dob) : dob;
   if (!birthDate) return null;
-  
+
   const today = new Date();
   let age = today.getFullYear() - birthDate.getFullYear();
   const monthDiff = today.getMonth() - birthDate.getMonth();
-  
+
   if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
     age--;
   }
-  
-  return age;
+
+  return Math.max(0, age);
 }
 
 /**
@@ -94,17 +117,17 @@ export function calculateAge(dob) {
 export function calculateYearsOfService(firstAppointment, endDate = null) {
   const startDate = typeof firstAppointment === 'string' ? parseDDMMYYYY(firstAppointment) : firstAppointment;
   if (!startDate) return null;
-  
+
   const end = endDate ? (typeof endDate === 'string' ? parseDDMMYYYY(endDate) : endDate) : new Date();
   if (!end) return null;
-  
+
   let years = end.getFullYear() - startDate.getFullYear();
   const monthDiff = end.getMonth() - startDate.getMonth();
-  
+
   if (monthDiff < 0 || (monthDiff === 0 && end.getDate() < startDate.getDate())) {
     years--;
   }
-  
+
   return Math.max(0, years);
 }
 
@@ -117,17 +140,17 @@ export function calculateYearsOfService(firstAppointment, endDate = null) {
 export function calculateRetirementDate(dob, firstAppointment) {
   const birthDate = typeof dob === 'string' ? parseDDMMYYYY(dob) : dob;
   const startD = typeof firstAppointment === 'string' ? parseDDMMYYYY(firstAppointment) : firstAppointment;
-  
+
   if (!birthDate || !startD) return null;
-  
+
   // 60 years from DOB
   const retirementByAge = new Date(birthDate);
   retirementByAge.setFullYear(retirementByAge.getFullYear() + 60);
-  
+
   // 35 years from first appointment
   const retirementByService = new Date(startD);
   retirementByService.setFullYear(retirementByService.getFullYear() + 35);
-  
+
   // Return whichever comes first
   return retirementByAge < retirementByService ? retirementByAge : retirementByService;
 }
@@ -140,11 +163,11 @@ export function calculateRetirementDate(dob, firstAppointment) {
 export function calculateMonthsToRetirement(retirementDate) {
   const retDate = typeof retirementDate === 'string' ? parseDDMMYYYY(retirementDate) : retirementDate;
   if (!retDate) return null;
-  
+
   const today = new Date();
   const months = (retDate.getFullYear() - today.getFullYear()) * 12;
   const monthDiff = retDate.getMonth() - today.getMonth();
-  
+
   return months + monthDiff;
 }
 
@@ -156,13 +179,13 @@ export function calculateMonthsToRetirement(retirementDate) {
 export function getRetirementStatus(retirementDate) {
   const retDate = typeof retirementDate === 'string' ? parseDDMMYYYY(retirementDate) : retirementDate;
   if (!retDate) return 'Active';
-  
+
   const today = new Date();
   if (retDate <= today) return 'Retired';
-  
+
   const monthsToRet = calculateMonthsToRetirement(retDate);
   if (monthsToRet <= 12) return 'Approaching';
-  
+
   return 'Active';
 }
 
@@ -174,10 +197,10 @@ export function getRetirementStatus(retirementDate) {
 export function isAtLeast18Years(date) {
   const d = typeof date === 'string' ? parseDDMMYYYY(date) : date;
   if (!d) return false;
-  
+
   const today = new Date();
   const eighteenYearsAgo = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
-  
+
   return d <= eighteenYearsAgo;
 }
 

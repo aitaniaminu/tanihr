@@ -1,11 +1,18 @@
 import React, { useState } from 'react';
-import { Upload, Download, CheckCircle, XCircle, FileText } from 'lucide-react';
-import { downloadTemplate, parseCSV, validateAndImport, importValidRecords } from '../../utils/csvValidator';
+import { Upload, Download, CheckCircle, XCircle, FileText, AlertTriangle } from 'lucide-react';
+import {
+  downloadTemplate,
+  parseCSV,
+  validateAndImport,
+  importValidRecords,
+  downloadFailedRecords,
+} from '../../utils/csvValidator';
 
 const ImportEmployees = () => {
-  const [step, setStep] = useState(1); // 1: Upload, 2: Preview, 3: Summary
+  const [step, setStep] = useState(1);
   const [file, setFile] = useState(null);
   const [parsedData, setParsedData] = useState([]);
+  const [csvHeaders, setCsvHeaders] = useState([]);
   const [validationResults, setValidationResults] = useState(null);
   const [importSummary, setImportSummary] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -26,7 +33,11 @@ const ImportEmployees = () => {
     try {
       const data = await parseCSV(selectedFile);
       setParsedData(data);
-      
+
+      // Extract headers from first row for failed records export
+      const firstRow = Object.keys(data[0] || {});
+      setCsvHeaders(firstRow);
+
       // Validate the data
       const results = await validateAndImport(data);
       setValidationResults(results);
@@ -48,7 +59,7 @@ const ImportEmployees = () => {
       setImportSummary({
         successCount: validationResults.valid.length,
         errorCount: validationResults.invalid.length,
-        autoCreatedReferences: autoCreatedRefs
+        autoCreatedReferences: autoCreatedRefs,
       });
       setStep(3);
     } catch (error) {
@@ -63,6 +74,7 @@ const ImportEmployees = () => {
     setStep(1);
     setFile(null);
     setParsedData([]);
+    setCsvHeaders([]);
     setValidationResults(null);
     setImportSummary(null);
   };
@@ -74,21 +86,27 @@ const ImportEmployees = () => {
       {/* Step Indicator */}
       <div className="flex items-center mb-8">
         <div className={`flex items-center ${step >= 1 ? 'text-primary' : 'text-gray-400'}`}>
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${step >= 1 ? 'border-primary bg-primary text-white' : 'border-gray-300'}`}>
+          <div
+            className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${step >= 1 ? 'border-primary bg-primary text-white' : 'border-gray-300'}`}
+          >
             1
           </div>
           <span className="ml-2">Upload</span>
         </div>
         <div className={`flex-1 h-0.5 mx-4 ${step >= 2 ? 'bg-primary' : 'bg-gray-300'}`} />
         <div className={`flex items-center ${step >= 2 ? 'text-primary' : 'text-gray-400'}`}>
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${step >= 2 ? 'border-primary bg-primary text-white' : 'border-gray-300'}`}>
+          <div
+            className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${step >= 2 ? 'border-primary bg-primary text-white' : 'border-gray-300'}`}
+          >
             2
           </div>
           <span className="ml-2">Validate & Preview</span>
         </div>
         <div className={`flex-1 h-0.5 mx-4 ${step >= 3 ? 'bg-primary' : 'bg-gray-300'}`} />
         <div className={`flex items-center ${step >= 3 ? 'text-primary' : 'text-gray-400'}`}>
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${step >= 3 ? 'border-primary bg-primary text-white' : 'border-gray-300'}`}>
+          <div
+            className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${step >= 3 ? 'border-primary bg-primary text-white' : 'border-gray-300'}`}
+          >
             3
           </div>
           <span className="ml-2">Summary</span>
@@ -104,7 +122,7 @@ const ImportEmployees = () => {
             <p className="text-gray-600 mb-6">
               Download the template, fill in employee data, and upload for bulk import.
             </p>
-            
+
             <div className="flex justify-center gap-4 mb-6">
               <button
                 onClick={downloadTemplate}
@@ -131,9 +149,7 @@ const ImportEmployees = () => {
               </label>
             </div>
 
-            {isProcessing && (
-              <div className="mt-4 text-gray-600">Processing file...</div>
-            )}
+            {isProcessing && <div className="mt-4 text-gray-600">Processing file...</div>}
           </div>
         </div>
       )}
@@ -169,7 +185,19 @@ const ImportEmployees = () => {
 
             {validationResults.invalid.length > 0 && (
               <div className="mb-6">
-                <h3 className="font-semibold text-red-800 mb-2">Errors Found:</h3>
+                <div className="flex justify-between items-center mb-2">
+                  <h3 className="font-semibold text-red-800 flex items-center gap-2">
+                    <AlertTriangle size={18} />
+                    Errors Found ({validationResults.invalid.length} records):
+                  </h3>
+                  <button
+                    onClick={() => downloadFailedRecords(validationResults.invalid, csvHeaders)}
+                    className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 flex items-center gap-2 text-sm"
+                  >
+                    <Download size={16} />
+                    Download Failed Records
+                  </button>
+                </div>
                 <div className="max-h-64 overflow-auto border rounded-lg">
                   <table className="w-full text-sm">
                     <thead className="bg-red-50">
