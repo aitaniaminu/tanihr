@@ -30,7 +30,7 @@ describe('Login', () => {
 
   it('should have email and password inputs', () => {
     render(<Login />);
-    expect(screen.getByPlaceholderText('Enter your email')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('admin or admin@tanihr.com')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('Enter your password')).toBeInTheDocument();
   });
 

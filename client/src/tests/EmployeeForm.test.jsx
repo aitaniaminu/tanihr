@@ -1,8 +1,13 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { BrowserRouter } from 'react-router-dom';
 import EmployeeForm from '../pages/Employees/EmployeeForm';
 import { db } from '../db/indexedDB';
+
+const renderWithRouter = (ui) => {
+  return render(<BrowserRouter>{ui}</BrowserRouter>);
+};
 
 vi.mock('../db/indexedDB', () => {
   const mockDb = {
@@ -53,7 +58,7 @@ describe('EmployeeForm', () => {
   });
 
   it('should show "Add New Employee" heading when no employeeId is provided', async () => {
-    render(<EmployeeForm onBack={mockOnBack} />);
+    renderWithRouter onBack={mockOnBack} />);
     expect(await screen.findByText('Add New Employee')).toBeInTheDocument();
   });
 
@@ -92,7 +97,7 @@ describe('EmployeeForm', () => {
 
     db.employees.get.mockResolvedValue(mockEmployee);
 
-    render(<EmployeeForm employeeId={1} onBack={mockOnBack} />);
+    renderWithRouter employeeId={1} onBack={mockOnBack} />);
 
     expect(await screen.findByText('Edit Employee')).toBeInTheDocument();
     expect(screen.getByDisplayValue('Adebayo')).toBeInTheDocument();
@@ -122,7 +127,7 @@ describe('EmployeeForm', () => {
 
     db.employees.get.mockResolvedValue(mockEmployee);
 
-    render(<EmployeeForm employeeId={5} onBack={mockOnBack} />);
+    renderWithRouter employeeId={5} onBack={mockOnBack} />);
 
     await waitFor(() => {
       expect(db.employees.get).toHaveBeenCalledWith(5);
@@ -131,7 +136,7 @@ describe('EmployeeForm', () => {
   });
 
   it('should create new employee when no employeeId is provided', async () => {
-    render(<EmployeeForm onBack={mockOnBack} />);
+    renderWithRouter onBack={mockOnBack} />);
 
     expect(screen.getByText('Add New Employee')).toBeInTheDocument();
     expect(db.employees.get).not.toHaveBeenCalled();
@@ -139,7 +144,7 @@ describe('EmployeeForm', () => {
 
   it('should call onBack when cancel button is clicked', async () => {
     const user = userEvent.setup();
-    render(<EmployeeForm onBack={mockOnBack} />);
+    renderWithRouter onBack={mockOnBack} />);
 
     const cancelBtn = screen.getByText('Cancel');
     await user.click(cancelBtn);
@@ -149,7 +154,7 @@ describe('EmployeeForm', () => {
 
   it('should call onBack when back arrow button is clicked', async () => {
     const user = userEvent.setup();
-    render(<EmployeeForm onBack={mockOnBack} />);
+    renderWithRouter onBack={mockOnBack} />);
 
     const buttons = screen.getAllByRole('button');
     const backBtn = buttons.find((btn) => btn.closest('div')?.querySelector('svg'));
@@ -159,7 +164,7 @@ describe('EmployeeForm', () => {
   });
 
   it('should show avatar upload section in Personal Information', async () => {
-    render(<EmployeeForm onBack={mockOnBack} />);
+    renderWithRouter onBack={mockOnBack} />);
 
     expect(await screen.findByText('Personal Information')).toBeInTheDocument();
     expect(screen.getByLabelText(/upload photo/i)).toBeInTheDocument();
@@ -201,7 +206,7 @@ describe('EmployeeForm', () => {
 
     db.employees.get.mockResolvedValue(mockEmployee);
 
-    render(<EmployeeForm employeeId={1} onBack={mockOnBack} />);
+    renderWithRouter employeeId={1} onBack={mockOnBack} />);
 
     await waitFor(() => {
       const img = document.querySelector('img[alt="Employee avatar preview"]');
@@ -212,7 +217,7 @@ describe('EmployeeForm', () => {
 
   it('should show avatar preview after uploading a file', async () => {
     const user = userEvent.setup();
-    render(<EmployeeForm onBack={mockOnBack} />);
+    renderWithRouter onBack={mockOnBack} />);
 
     await screen.findByText('Add New Employee');
 
@@ -229,7 +234,7 @@ describe('EmployeeForm', () => {
 
   it('should show remove button after avatar is uploaded', async () => {
     const user = userEvent.setup();
-    render(<EmployeeForm onBack={mockOnBack} />);
+    renderWithRouter onBack={mockOnBack} />);
 
     await screen.findByText('Add New Employee');
 
