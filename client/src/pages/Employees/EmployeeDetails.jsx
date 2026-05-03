@@ -24,7 +24,7 @@ export default function EmployeeDetails({ employeeId }) {
         const { data } = await supabase
           .from('employees')
           .select('*')
-          .eq('id', parseInt(employeeId))
+          .eq('id', employeeId)
           .single();
         
         if (data) {
