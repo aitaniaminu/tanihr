@@ -1,64 +1,81 @@
-# TaniHR - Nigerian HRMIS (v2.1)
+# TaniHR - Nigerian HRMIS (v3.0)
 
 An offline-first, web-based Human Resources Management Information System designed for Nigerian civil service organisations.
 
 ## Features Implemented (Employee Module)
 
-### Module 1: Employee Management ✅
+### Module 1: Employee Management
 - **Employee List View**
-  - Paginated, searchable, sortable data table
-  - Columns: File Number, Surname, First Name, Department, Rank, Date of Present Appointment, Status, Retirement indicator
-  - Search by: name, File Number, department, rank
-  - Filter by: department, status
-  - Click any row to open employee's full profile
+  - Server-side pagination (20 records per page)
+  - Searchable, sortable data table
+  - Columns: File Number, Name, Department, Rank
+  - Search by: name, File Number, department
+  - Delete with confirmation modal
 
 - **Employee Profile/Form**
-  - All 30 fields from the Data Dictionary
-  - Computed fields: Age, Years in Service, Retirement Date, Retirement Status
-  - Retirement Status Indicator: 🟢 Active / 🟠 Approaching / 🔴 Retired
+  - 30 fields from Data Dictionary
   - Full validation per PSR guidelines
-  - Auto-calculation of retirement date (60 years from DOB OR 35 years from first appointment, whichever comes first)
+  - Avatar upload support
 
-- **CSV Import System** ✅
-  - Download template with exact 30-column headers
-  - Upload and parse CSV files (max 15MB)
-  - Strict DD-MM-YYYY date validation
-  - Row-level error reporting
-  - Preview valid/invalid records before import
-  - Dynamic reference creation (auto-creates missing Departments, Ranks, PFAs, States, LGAs)
-  - Import summary with auto-created references log
+- **Employee Details**
+  - Personal information section
+  - Service information section
+  - Offline-first with Supabase sync
 
 ### Technology Stack
 - **Frontend**: React.js (Vite) + Tailwind CSS
-- **Offline Storage**: IndexedDB + Dexie.js
-- **CSV Parsing**: PapaParse
-- **Date Handling**: Custom utilities for DD-MM-YYYY format
+- **Database**: Supabase (PostgreSQL) - source of truth
+- **Offline Storage**: IndexedDB + Dexie.js (local cache)
+- **Authentication**: Supabase Auth with PKCE
+
+## Architecture
+
+### Offline-First Sync Strategy
+```
+Page Load → Supabase (fetch all needed)
+           ↓
+         IndexedDB (cache for offline)
+           ↓
+   Supabase on next online
+```
+
+### Server-Side Pagination
+- Use Supabase `.range(from, to)` for efficient fetches
+- Get exact count with `{ count: 'exact', head: true }`
+- Search filtering on server side
 
 ## Project Structure
 ```
-/workspace
-├── client/src/
-│   ├── db/indexedDB.js          # Dexie database schema
-│   ├── data/nigerianData.js     # Nigerian states, LGAs, PFAs, etc.
-│   ├── utils/
-│   │   ├── dateHelpers.js       # DD-MM-YYYY parsing/formatting
-│   │   └── csvValidator.js      # CSV import validation
-│   ├── pages/Employees/
-│   │   ├── EmployeeList.jsx     # Employee list with search/filter
-│   │   ├── EmployeeForm.jsx     # Add/Edit employee form
-│   │   └── ImportEmployees.jsx  # CSV import wizard
-│   ├── App.jsx                  # Main app with navigation
-│   └── main.jsx                 # Entry point
-├── templates/
-│   └── employee_import_template.csv
-└── package.json
+/client/src/
+├── lib/
+│   ├── supabase.js           # Supabase client
+│   └── syncSupabase.js      # Sync utilities
+├── db/
+│   └── indexedDB.js        # Dexie offline cache
+├── pages/
+│   ├── Employees/
+│   │   ├── EmployeeList.jsx     # Paginated list
+│   │   ├── EmployeeForm.jsx      # Add/Edit form
+│   │   └── EmployeeDetails.jsx   # View details
+│   ├── Dashboard.jsx
+│   ├── OrgChart.jsx
+│   └── DocumentVault.jsx
+├── context/
+│   └── AuthContext.jsx    # Auth provider
+└── App.jsx
 ```
 
 ## Getting Started
 
+### Environment Variables
+```bash
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_anon_key
+```
+
 ### Installation
 ```bash
-cd /workspace
+cd client
 npm install
 ```
 
@@ -72,50 +89,37 @@ npm run dev
 npm run build
 ```
 
-## Usage
+## Commands
+```bash
+npm run dev          # Start dev server
+npm run build       # Production build
+npm run test:run   # Run tests
+npm run lint        # ESLint check
+npm run format     # Prettier format
+```
 
-### Adding an Employee Manually
-1. Navigate to "Employees" from the sidebar
-2. Click "Add Employee" button
-3. Fill in all required fields (marked with *)
-4. Retirement date is auto-calculated based on Nigerian Civil Service rules
-5. Click "Create Employee"
+## Best Practices (from Odoo HR research)
 
-### Importing Employees via CSV
-1. Navigate to "Import CSV" from the sidebar
-2. Click "Download Template" to get the correct format
-3. Fill in employee data using DD-MM-YYYY date format
-4. Upload the CSV file
-5. Review validation results (valid rows highlighted green, errors in red)
-6. Click "Import Valid Records"
-7. System will auto-create any missing reference data (Departments, PFAs, etc.)
+Implemented:
+- Unified employee profile with contract history
+- Server-side pagination for large datasets
+- Offline-first with Supabase sync
+- Role-based access control
 
-## Nigerian Civil Service Compliance
+Future Enhancements:
+- Skills/certifications tracking
+- Timesheet integration
+- Leave management
+- Document vault
+- Employee self-service portal
 
-- **Date Format**: DD-MM-YYYY throughout UI and CSV
-- **Retirement Calculation**: MIN(DOB + 60 years, First Appointment + 35 years)
-- **Retirement Status**:
-  - 🟢 Active: More than 12 months to retirement
-  - 🟠 Approaching: 12 months or less to retirement
-  - 🔴 Retired: Retirement date has passed
-- **Required Fields**: File Number, Surname, First Name, DOB, Sex, Department, Rank, Salary Grade Level, Type of Appointment, Date of First Appointment, Date of Present Appointment, PFA Name, State, LGA, Status
+## Version History
 
-## Sample Data
-
-A sample CSV file with 5 employees is included in `/templates/employee_import_template.csv` for testing the import functionality.
-
-## Next Steps (Leave Module)
-
-The Leave Management module will be developed next, including:
-- Leave types per Nigerian Civil Service (Annual, Sick, Maternity, Paternity, Casual, Study, Compassionate)
-- Leave application workflow
-- Balance tracking with retirement integration
-- Leave approval system
-- Calendar view
+- **v3.0**: Supabase integration, server-side pagination
+- **v2.1**: Offline-first with IndexedDB
+- **v2.0**: Employee module complete
 
 ---
 
-**Version**: 2.1  
-**Status**: Employee Module Complete ✅  
-**Next Phase**: Leave Management Module
-# Fix Authentication
+**Status**: Active Development
+**Supabase Records**: ~3,084 employees
