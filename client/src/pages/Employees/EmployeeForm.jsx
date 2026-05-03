@@ -10,6 +10,7 @@ import {
   calculateAge,
   isAtLeast18Years,
 } from '../../utils/dateHelpers';
+import { mapEmployeeFromSupabase } from '../../utils/employeeMapper';
 import {
   nigerianStates,
   getLGAsForState,
@@ -141,41 +142,42 @@ const EmployeeForm = ({ employee, employeeId, onBack }) => {
         return;
       }
 
+      const mapped = mapEmployeeFromSupabase(emp);
       setUpdateId(emp.id);
       setFormData({
-        fileNumber: emp.file_number || '',
-        ippisNumber: emp.ippis_number || '',
-        psn: emp.psn || '',
+        fileNumber: mapped.fileNumber || '',
+        ippisNumber: mapped.ippisNumber || '',
+        psn: mapped.psn || '',
         surname: emp.surname || '',
-        firstName: emp.first_name || '',
-        middleName: emp.middle_name || '',
-        dateOfBirth: formatDDMMYYYY(emp.date_of_birth),
+        firstName: mapped.firstName || '',
+        middleName: mapped.middleName || '',
+        dateOfBirth: formatDDMMYYYY(mapped.dateOfBirth),
         sex: emp.sex || '',
         phone: emp.phone || '',
-        department: emp.department_name || '',
+        department: mapped.department || '',
         cadre: emp.cadre || '',
-        rank: emp.rank_name || '',
-        salaryGradeLevel: emp.salary_grade_level || '',
-        step: emp.step?.toString() || '',
-        appointmentType: emp.appointment_type || 'Permanent',
-        dateOfFirstAppointment: formatDDMMYYYY(emp.date_of_first_appointment),
-        dateOfConfirmation: formatDDMMYYYY(emp.date_of_confirmation),
-        dateOfPresentAppointment: formatDDMMYYYY(emp.date_of_present_appointment),
-        pfaName: emp.pfa_name || '',
-        rsaPin: emp.rsa_pin || '',
+        rank: mapped.rank || '',
+        salaryGradeLevel: mapped.salaryGradeLevel || '',
+        step: mapped.step?.toString() || '',
+        appointmentType: mapped.appointmentType || 'Permanent',
+        dateOfFirstAppointment: formatDDMMYYYY(mapped.dateOfFirstAppointment),
+        dateOfConfirmation: formatDDMMYYYY(mapped.dateOfConfirmation),
+        dateOfPresentAppointment: formatDDMMYYYY(mapped.dateOfPresentAppointment),
+        pfaName: mapped.pfaName || '',
+        rsaPin: mapped.rsaPin || '',
         email: emp.email || '',
-        state: emp.state_of_origin || '',
-        lga: emp.lga || '',
-        geopoliticalZone: emp.geopolitical_zone || '',
-        remark: emp.remark || '',
-        status: emp.status || 'Active',
-        location: emp.location || '',
-        qualification: emp.qualification || '',
-        natureOfJob: emp.nature_of_job || '',
-        salaryStructure: emp.salary_structure || '',
+        state: mapped.state || '',
+        lga: mapped.lga || '',
+        geopoliticalZone: mapped.geopoliticalZone || '',
+        remark: mapped.remark || '',
+        status: mapped.status || 'Active',
+        location: mapped.location || '',
+        qualification: mapped.qualification || '',
+        natureOfJob: mapped.natureOfJob || '',
+        salaryStructure: mapped.salaryStructure || '',
         managerId: emp.manager_id || '',
       });
-      setAvatarPreview(emp.avatar_url || '');
+      setAvatarPreview(mapped.avatar || '');
     } catch (error) {
       console.error('Error loading employee:', error);
       setFetchError('Failed to load employee data');

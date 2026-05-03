@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../../db/indexedDB';
 import supabase from '../../lib/supabase';
+import { mapEmployeeFromSupabase } from '../../utils/employeeMapper';
 
 const Field = ({ label, value }) => (
   <div className="py-3 border-b border-gray-100">
@@ -29,26 +30,7 @@ export default function EmployeeDetails({ employeeId }) {
         
         if (data) {
           await db.employees.put(data);
-          const mapped = {
-            ...data,
-            firstName: data.first_name,
-            dateOfBirth: data.date_of_birth,
-            department: data.department_name,
-            rank: data.rank_name,
-            fileNumber: data.file_number,
-            dateOfFirstAppointment: data.date_of_first_appointment,
-            dateOfConfirmation: data.date_of_confirmation,
-            dateOfPresentAppointment: data.date_of_present_appointment,
-            salaryGradeLevel: data.salary_grade_level,
-            appointmentType: data.appointment_type,
-            pfaName: data.pfa_name,
-            rsaPin: data.rsa_pin,
-            state: data.state_of_origin,
-            lga: data.lga,
-            geopoliticalZone: data.geopolitical_zone,
-            avatar: data.avatar_url,
-          };
-          setEmp(mapped);
+          setEmp(mapEmployeeFromSupabase(data));
         } else if (error) {
           console.error('Supabase error:', error);
           setError('Employee not found');
@@ -135,19 +117,41 @@ export default function EmployeeDetails({ employeeId }) {
               <Field label="State of Origin" value={emp.state} />
               <Field label="LGA" value={emp.lga} />
               <Field label="Geopolitical Zone" value={emp.geopoliticalZone} />
+              <Field label="Qualification" value={emp.qualification} />
             </dl>
           </div>
 
           <div>
             <h3 className="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">Service Information</h3>
             <dl>
+              <Field label="File Number" value={emp.fileNumber} />
+              <Field label="IPPIS Number" value={emp.ippisNumber} />
+              <Field label="PSN" value={emp.psn} />
               <Field label="Date of First Appointment" value={emp.dateOfFirstAppointment} />
+              <Field label="Date of Confirmation" value={emp.dateOfConfirmation} />
               <Field label="Date of Present Appointment" value={emp.dateOfPresentAppointment} />
               <Field label="Appointment Type" value={emp.appointmentType} />
               <Field label="Salary Grade Level" value={emp.salaryGradeLevel} />
               <Field label="Step" value={emp.step} />
+              <Field label="Salary Structure" value={emp.salaryStructure} />
+              <Field label="Nature of Job" value={emp.natureOfJob} />
+            </dl>
+          </div>
+
+          <div>
+            <h3 className="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">Pension Information</h3>
+            <dl>
               <Field label="PFA" value={emp.pfaName} />
               <Field label="RSA PIN" value={emp.rsaPin} />
+            </dl>
+          </div>
+
+          <div>
+            <h3 className="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">Employment Details</h3>
+            <dl>
+              <Field label="Status" value={emp.status} />
+              <Field label="Location" value={emp.location} />
+              <Field label="Remark" value={emp.remark} />
             </dl>
           </div>
         </div>
