@@ -21,7 +21,7 @@ export default function EmployeeDetails({ employeeId }) {
       try {
         await db.employees.get(employeeId);
         
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('employees')
           .select('*')
           .eq('id', employeeId)
@@ -29,7 +29,29 @@ export default function EmployeeDetails({ employeeId }) {
         
         if (data) {
           await db.employees.put(data);
-          setEmp(data);
+          const mapped = {
+            ...data,
+            firstName: data.first_name,
+            dateOfBirth: data.date_of_birth,
+            department: data.department_name,
+            rank: data.rank_name,
+            fileNumber: data.file_number,
+            dateOfFirstAppointment: data.date_of_first_appointment,
+            dateOfConfirmation: data.date_of_confirmation,
+            dateOfPresentAppointment: data.date_of_present_appointment,
+            salaryGradeLevel: data.salary_grade_level,
+            appointmentType: data.appointment_type,
+            pfaName: data.pfa_name,
+            rsaPin: data.rsa_pin,
+            state: data.state_of_origin,
+            lga: data.lga,
+            geopoliticalZone: data.geopolitical_zone,
+            avatar: data.avatar_url,
+          };
+          setEmp(mapped);
+        } else if (error) {
+          console.error('Supabase error:', error);
+          setError('Employee not found');
         } else {
           setError('Employee not found');
         }
