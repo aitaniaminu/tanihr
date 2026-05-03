@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LayoutDashboard, Users, Download, Building2, X, Network, FileText, RefreshCw } from 'lucide-react';
+import { LayoutDashboard, Users, Download, Building2, X, Network, FileText, RefreshCw, BarChart3 } from 'lucide-react';
 
 const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -8,6 +8,7 @@ const navItems = [
   { path: '/departments', label: 'Departments', icon: Building2 },
   { path: '/org-chart', label: 'Org Chart', icon: Network },
   { path: '/documents', label: 'Document Vault', icon: FileText },
+  { path: '/reports', label: 'Reports', icon: BarChart3 },
   { path: '/sync', label: 'Sync Data', icon: RefreshCw },
   { path: '/import', label: 'Import CSV', icon: Download },
 ];
