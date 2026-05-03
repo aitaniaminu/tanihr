@@ -14,6 +14,8 @@ const OrgChart = lazy(() => import('./pages/OrgChart'));
 const DocumentVault = lazy(() => import('./pages/DocumentVault'));
 const SyncSupabase = lazy(() => import('./pages/SyncSupabase'));
 const Reports = lazy(() => import('./pages/Reports'));
+const Skills = lazy(() => import('./pages/Skills'));
+const LeaveManagement = lazy(() => import('./pages/LeaveManagement'));
 
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-64">
@@ -179,6 +181,30 @@ export default function App() {
               <LazyRoute>
                 <Layout>
                   <Reports />
+                </Layout>
+              </LazyRoute>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/skills"
+          element={
+            <ProtectedRoute>
+              <LazyRoute>
+                <Layout>
+                  <Skills />
+                </Layout>
+              </LazyRoute>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/leave"
+          element={
+            <ProtectedRoute>
+              <LazyRoute>
+                <Layout>
+                  <LeaveManagement />
                 </Layout>
               </LazyRoute>
             </ProtectedRoute>

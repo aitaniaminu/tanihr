@@ -102,3 +102,46 @@ CREATE TABLE employees (
 
 -- Insert default organization
 INSERT INTO organizations (name) VALUES ('Tani Nigeria Ltd');
+
+-- Employee Skills
+CREATE TABLE employee_skills (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    employee_id UUID REFERENCES employees(id),
+    name TEXT NOT NULL,
+    category TEXT,
+    level TEXT DEFAULT 'Intermediate',
+    date_obtained DATE,
+    date_expires DATE,
+    description TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Employee Certifications
+CREATE TABLE employee_certifications (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    employee_id UUID REFERENCES employees(id),
+    name TEXT NOT NULL,
+    provider TEXT,
+    status TEXT DEFAULT 'Pending',
+    date_obtained DATE,
+    date_expires DATE,
+    description TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Leave Requests
+CREATE TABLE leave_requests (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    employee_id UUID REFERENCES employees(id),
+    leave_type TEXT NOT NULL,
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    days INTEGER NOT NULL,
+    reason TEXT,
+    status TEXT DEFAULT 'Pending',
+    approved_by UUID REFERENCES employees(id),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
