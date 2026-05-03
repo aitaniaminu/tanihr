@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../../db/indexedDB';
+import supabase from '../../lib/supabase';
 
 const Field = ({ label, value }) => (
   <div className="py-3 border-b border-gray-100">
@@ -18,11 +19,19 @@ export default function EmployeeDetails({ employeeId }) {
   useEffect(() => {
     const load = async () => {
       try {
-        const employee = await db.employees.get(employeeId);
-        if (!employee) {
-          setError('Employee not found');
+        await db.employees.get(employeeId);
+        
+        const { data } = await supabase
+          .from('employees')
+          .select('*')
+          .eq('id', parseInt(employeeId))
+          .single();
+        
+        if (data) {
+          await db.employees.put(data);
+          setEmp(data);
         } else {
-          setEmp(employee);
+          setError('Employee not found');
         }
       } catch (err) {
         console.error('Error loading employee:', err);

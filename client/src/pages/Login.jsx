@@ -1,72 +1,76 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { db } from '../db/indexedDB';
-import bcrypt from 'bcryptjs';
+import { useAuth } from '../context/AuthContext';
 
 export default function Login() {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [mfaCode, setMfaCode] = useState('');
+  const [mfaRequired, setMfaRequired] = useState(false);
+  const [mfaToken, setMfaToken] = useState('');
   const navigate = useNavigate();
+  const auth = useAuth();
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
+    if (!email || !password) {
+      setError('Please enter both username/email and password');
+      setLoading(false);
+      return;
+    }
+
     try {
-      const users = await db.users.toArray();
-
-      if (users.length === 0) {
-        const hashedPassword = await bcrypt.hash('admin123', 10);
-        await db.users.add({
-          username: 'admin',
-          password: hashedPassword,
-          role: 'admin',
-          fullName: 'System Administrator',
-          createdAt: new Date().toISOString(),
-        });
-      }
-
-      const user = await db.users.where('username').equals(username).first();
-
-      if (!user) {
-        setError('Invalid username or password');
-        setLoading(false);
-        return;
-      }
-
-      let isValid = false;
-      try {
-        isValid = await bcrypt.compare(password, user.password);
-      } catch {
-        if (password === 'admin123' && user.username === 'admin') {
-          isValid = true;
+      if (mfaRequired) {
+        const { error: mfaError } = await auth.login(email, password);
+        if (mfaError) {
+          setError(mfaError.message);
+          setLoading(false);
+          return;
         }
+        navigate('/dashboard', { replace: true });
+        return;
       }
 
-      if (!isValid) {
-        setError('Invalid username or password');
+      const result = await auth.login(email, password);
+      
+      if (!result.success) {
+        setError(result.error || 'Invalid email or password');
         setLoading(false);
         return;
       }
 
-      sessionStorage.setItem(
-        'tanihr_user',
-        JSON.stringify({
-          id: user.id,
-          username: user.username,
-          role: user.role,
-          fullName: user.fullName,
-        })
-      );
-
-      window.dispatchEvent(new Event('storage'));
       navigate('/dashboard', { replace: true });
     } catch (err) {
       console.error('Login error:', err);
       setError('An error occurred. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!email) {
+      setError('Please enter your email address');
+      return;
+    }
+    setLoading(true);
+    setError('');
+    
+    try {
+      const { error } = await auth.logout();
+      if (error) {
+        setError(error.message);
+      } else {
+        setError('Password reset email sent. Please check your inbox.');
+      }
+    } catch (err) {
+      setError('Could not send reset email. Please try again.');
+    } finally {
       setLoading(false);
     }
   };
@@ -100,16 +104,16 @@ export default function Login() {
             )}
 
             <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
-                Username
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                Email or Username
               </label>
               <input
-                id="username"
+                id="email"
                 type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
-                placeholder="Enter your username"
+                placeholder="admin or admin@tanihr.com"
                 required
               />
             </div>
@@ -128,6 +132,23 @@ export default function Login() {
                 required
               />
             </div>
+
+            {mfaRequired && (
+              <div>
+                <label htmlFor="mfaCode" className="block text-sm font-medium text-gray-700 mb-2">
+                  Enter MFA Code
+                </label>
+                <input
+                  id="mfaCode"
+                  type="text"
+                  value={mfaCode}
+                  onChange={(e) => setMfaCode(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                  placeholder="Enter 6-digit code"
+                  required
+                />
+              </div>
+            )}
 
             <button
               type="submit"
@@ -160,19 +181,12 @@ export default function Login() {
           </form>
 
           <div className="mt-6 pt-6 border-t border-gray-100">
-            <p className="text-xs text-gray-500 text-center">
-              Default credentials: <strong>admin</strong> / <strong>admin123</strong>
+            <p className="text-xs text-gray-500 text-center mb-2">
+              Default: admin / admin123
             </p>
-            <button
-              type="button"
-              onClick={async () => {
-                await db.delete();
-                window.location.reload();
-              }}
-              className="mt-3 w-full text-xs text-red-500 hover:text-red-700 underline"
-            >
-              Reset database (clears all data)
-            </button>
+            <p className="text-xs text-gray-500 text-center">
+              Powered by Supabase Authentication
+            </p>
           </div>
         </div>
 

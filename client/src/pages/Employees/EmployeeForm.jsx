@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { db } from '../../db/indexedDB';
-import { ArrowLeft, Save, Camera, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import supabase from '../../lib/supabase';
+import { useAuth } from '../../context/AuthContext';
+import { ArrowLeft, Save, Camera, X, FileText } from 'lucide-react';
 import {
   formatDDMMYYYY,
   parseDDMMYYYY,
   toISODate,
-  calculateRetirementDate,
-  getRetirementStatus,
   calculateAge,
   isAtLeast18Years,
 } from '../../utils/dateHelpers';
@@ -18,12 +18,16 @@ import {
   defaultDepartments,
   defaultRanks,
   defaultSalaryStructures,
+  defaultSites,
 } from '../../data/nigerianData';
 
 const EmployeeForm = ({ employee, employeeId, onBack }) => {
   const isEdit = !!employeeId || !!employee?.id;
   const [loading, setLoading] = useState(isEdit);
   const [fetchError, setFetchError] = useState(null);
+  const [updateId, setUpdateId] = useState(null);
+  const { user } = useAuth();
+  const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
     fileNumber: '',
@@ -56,6 +60,7 @@ const EmployeeForm = ({ employee, employeeId, onBack }) => {
     qualification: '',
     natureOfJob: '',
     salaryStructure: '',
+    managerId: '',
   });
 
   const [errors, setErrors] = useState({});
@@ -64,9 +69,9 @@ const EmployeeForm = ({ employee, employeeId, onBack }) => {
   const [ranks, setRanks] = useState([]);
   const [pfas, setPfas] = useState([]);
   const [salaryStructures, setSalaryStructures] = useState([]);
+  const [managers, setManagers] = useState([]);
+  const [sites, setSites] = useState([]);
   const [computedFields, setComputedFields] = useState({
-    retirementDate: '',
-    retirementStatus: 'Active',
     age: '',
     yearsOfService: '',
   });
@@ -99,60 +104,78 @@ const EmployeeForm = ({ employee, employeeId, onBack }) => {
   }, [formData.dateOfBirth, formData.dateOfFirstAppointment]);
 
   const loadReferenceData = async () => {
-    const [depts, rks, pfAs, salStructs] = await Promise.all([
-      db.departments.toArray(),
-      db.ranks.toArray(),
-      db.pfas.toArray(),
-      db.salaryStructures.toArray(),
-    ]);
+    try {
+      const [deptsRes, rksRes, pfAsRes, salRes, empsRes] = await Promise.all([
+        supabase.from('departments').select('name'),
+        supabase.from('ranks').select('name'),
+        supabase.from('pfas').select('name'),
+        supabase.from('salary_structures').select('name'),
+        supabase.from('employees').select('id, file_number, surname, first_name, rank_name'),
+      ]);
 
-    setDepartments(depts.map((d) => d.name));
-    setRanks(rks.map((r) => r.name));
-    setPfas(pfAs.map((p) => p.name));
-    setSalaryStructures(salStructs.map((s) => s.name));
+      setDepartments(deptsRes.data?.map(d => d.name) || []);
+      setRanks(rksRes.data?.map(r => r.name) || []);
+      setPfas(pfAsRes.data?.map(p => p.name) || []);
+      setSalaryStructures(salRes.data?.map(s => s.name) || []);
+      setManagers(empsRes.data || []);
+      setSites(defaultSites);
+    } catch (error) {
+      console.error('Error loading reference data:', error);
+    }
   };
 
   const fetchEmployeeById = async (id) => {
     try {
-      const emp = await db.employees.get(parseInt(id));
-      if (!emp) {
+      console.log('Fetching employee with id:', id);
+      const { data: emp, error } = await supabase
+        .from('employees')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      console.log('Query result:', { emp, error });
+
+      if (error || !emp) {
         setFetchError('Employee not found');
         setLoading(false);
         return;
       }
+
+      setUpdateId(emp.id);
       setFormData({
-        fileNumber: emp.fileNumber || '',
-        ippisNumber: emp.ippisNumber || '',
+        fileNumber: emp.file_number || '',
+        ippisNumber: emp.ippis_number || '',
         psn: emp.psn || '',
         surname: emp.surname || '',
-        firstName: emp.firstName || '',
-        middleName: emp.middleName || '',
-        dateOfBirth: formatDDMMYYYY(emp.dateOfBirth),
+        firstName: emp.first_name || '',
+        middleName: emp.middle_name || '',
+        dateOfBirth: formatDDMMYYYY(emp.date_of_birth),
         sex: emp.sex || '',
         phone: emp.phone || '',
-        department: emp.department || '',
+        department: emp.department_name || '',
         cadre: emp.cadre || '',
-        rank: emp.rank || '',
-        salaryGradeLevel: emp.salaryGradeLevel || '',
+        rank: emp.rank_name || '',
+        salaryGradeLevel: emp.salary_grade_level || '',
         step: emp.step?.toString() || '',
-        appointmentType: emp.appointmentType || 'Permanent',
-        dateOfFirstAppointment: formatDDMMYYYY(emp.dateOfFirstAppointment),
-        dateOfConfirmation: formatDDMMYYYY(emp.dateOfConfirmation),
-        dateOfPresentAppointment: formatDDMMYYYY(emp.dateOfPresentAppointment),
-        pfaName: emp.pfaName || '',
-        rsaPin: emp.rsaPin || '',
+        appointmentType: emp.appointment_type || 'Permanent',
+        dateOfFirstAppointment: formatDDMMYYYY(emp.date_of_first_appointment),
+        dateOfConfirmation: formatDDMMYYYY(emp.date_of_confirmation),
+        dateOfPresentAppointment: formatDDMMYYYY(emp.date_of_present_appointment),
+        pfaName: emp.pfa_name || '',
+        rsaPin: emp.rsa_pin || '',
         email: emp.email || '',
-        state: emp.state || '',
+        state: emp.state_of_origin || '',
         lga: emp.lga || '',
-        geopoliticalZone: emp.geopoliticalZone || '',
+        geopoliticalZone: emp.geopolitical_zone || '',
         remark: emp.remark || '',
         status: emp.status || 'Active',
         location: emp.location || '',
         qualification: emp.qualification || '',
-        natureOfJob: emp.natureOfJob || '',
-        salaryStructure: emp.salaryStructure || '',
+        natureOfJob: emp.nature_of_job || '',
+        salaryStructure: emp.salary_structure || '',
+        managerId: emp.manager_id || '',
       });
-      setAvatarPreview(emp.avatar || '');
+      setAvatarPreview(emp.avatar_url || '');
     } catch (error) {
       console.error('Error loading employee:', error);
       setFetchError('Failed to load employee data');
@@ -162,6 +185,9 @@ const EmployeeForm = ({ employee, employeeId, onBack }) => {
   };
 
   const loadEmployeeData = () => {
+    if (employee?.id) {
+      setUpdateId(employee.id);
+    }
     setFormData({
       fileNumber: employee.fileNumber || '',
       ippisNumber: employee.ippisNumber || '',
@@ -193,6 +219,7 @@ const EmployeeForm = ({ employee, employeeId, onBack }) => {
       qualification: employee.qualification || '',
       natureOfJob: employee.natureOfJob || '',
       salaryStructure: employee.salaryStructure || '',
+      managerId: employee.managerId || '',
     });
     setAvatarPreview(employee.avatar || '');
   };
@@ -240,16 +267,6 @@ const EmployeeForm = ({ employee, employeeId, onBack }) => {
       if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < startD.getDate())) years--;
       setComputedFields((prev) => ({ ...prev, yearsOfService: Math.max(0, years)?.toString() || '' }));
     }
-
-    if (dob && firstAppt) {
-      const retDate = calculateRetirementDate(formData.dateOfBirth, formData.dateOfFirstAppointment);
-      const retStatus = getRetirementStatus(retDate);
-      setComputedFields((prev) => ({
-        ...prev,
-        retirementDate: formatDDMMYYYY(retDate),
-        retirementStatus: retStatus,
-      }));
-    }
   };
 
   const handleChange = (e) => {
@@ -294,7 +311,6 @@ const EmployeeForm = ({ employee, employeeId, onBack }) => {
       newErrors.dateOfPresentAppointment = 'Present Appointment cannot be before First Appointment';
     }
 
-    if (!formData.pfaName.trim()) newErrors.pfaName = 'PFA Name is required';
     if (!formData.state.trim()) newErrors.state = 'State is required';
     if (!formData.lga.trim()) newErrors.lga = 'LGA is required';
     if (!formData.status) newErrors.status = 'Status is required';
@@ -303,67 +319,88 @@ const EmployeeForm = ({ employee, employeeId, onBack }) => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e) => {
+const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!validate()) return;
+    setErrors({});
 
-    const updateId = employee?.id || employeeId;
-    if (isEdit && !updateId) {
-      alert('Employee ID is missing. Please refresh the page and try again.');
+    // Validate required fields
+    const required = ['fileNumber', 'surname', 'firstName', 'dateOfBirth', 'sex', 'department', 'rank', 'salaryGradeLevel', 'appointmentType', 'dateOfFirstAppointment', 'dateOfPresentAppointment', 'state', 'lga'];
+    const newErrors = {};
+    required.forEach(field => {
+      if (!formData[field]) newErrors[field] = 'Required';
+    });
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
       return;
     }
 
     const employeeData = {
-      ...formData,
-      avatar: avatarPreview || null,
-      step: formData.step ? parseInt(formData.step) : null,
-      dateOfBirth: toISODate(formData.dateOfBirth),
-      dateOfFirstAppointment: toISODate(formData.dateOfFirstAppointment),
-      dateOfConfirmation: formData.dateOfConfirmation ? toISODate(formData.dateOfConfirmation) : null,
-      dateOfPresentAppointment: toISODate(formData.dateOfPresentAppointment),
-      retirementDate: computedFields.retirementDate ? toISODate(computedFields.retirementDate) : null,
-      retirementStatus: computedFields.retirementStatus,
-      updatedAt: new Date().toISOString(),
+      file_number: formData.fileNumber,
+      ippis_number: formData.ippisNumber || null,
+      psn: formData.psn || null,
+      surname: formData.surname,
+      first_name: formData.firstName,
+      middle_name: formData.middleName || null,
+      date_of_birth: toISODate(formData.dateOfBirth),
+      sex: formData.sex,
+      phone: formData.phone || null,
+      email: formData.email || null,
+      department_name: formData.department || null,
+      cadre: formData.cadre || null,
+      rank_name: formData.rank || null,
+      salary_grade_level: formData.salaryGradeLevel || null,
+      step: formData.step?.toString() || null,
+      appointment_type: formData.appointmentType,
+      date_of_first_appointment: toISODate(formData.dateOfFirstAppointment),
+      date_of_confirmation: formData.dateOfConfirmation ? toISODate(formData.dateOfConfirmation) : null,
+      date_of_present_appointment: toISODate(formData.dateOfPresentAppointment),
+      pfa_name: formData.pfaName || null,
+      rsa_pin: formData.rsaPin || null,
+      state_of_origin: formData.state,
+      lga: formData.lga,
+      geopolitical_zone: formData.geopoliticalZone || null,
+      remark: formData.remark || null,
+      status: formData.status,
+      location: formData.location || null,
+      qualification: formData.qualification || null,
+      nature_of_job: formData.natureOfJob || null,
+      salary_structure: formData.salaryStructure || null,
+      avatar_url: avatarPreview || null,
+      updated_at: new Date().toISOString(),
     };
 
     try {
-      // Auto-create references if they don't exist (best effort)
-      try {
-        if (formData.department && !departments.includes(formData.department)) {
-          await db.departments.add({ name: formData.department });
-        }
-      } catch {
-        // Already exists or can be created later
+      // Auto-create references in Supabase
+      if (formData.department && !departments.includes(formData.department)) {
+        await supabase.from('departments').upsert({ name: formData.department }, { onConflict: 'name' });
       }
-      try {
-        if (formData.rank && !ranks.includes(formData.rank)) {
-          await db.ranks.add({ name: formData.rank });
-        }
-      } catch {
-        // Already exists or can be created later
+      
+      if (formData.rank && !ranks.includes(formData.rank)) {
+        const level = parseInt(String(formData.rank).replace(/\D/g,'')) || 1;
+        await supabase.from('ranks').upsert({ name: formData.rank, level }, { onConflict: 'name' });
       }
-      try {
-        if (formData.pfaName && !pfas.includes(formData.pfaName)) {
-          await db.pfas.add({ name: formData.pfaName });
-        }
-      } catch {
-        // Already exists or can be created later
+      
+      if (formData.pfaName && !pfas.includes(formData.pfaName)) {
+        await supabase.from('pfas').upsert({ name: formData.pfaName }, { onConflict: 'name' });
       }
-      try {
-        if (formData.salaryStructure && !salaryStructures.includes(formData.salaryStructure)) {
-          await db.salaryStructures.add({ name: formData.salaryStructure });
-        }
-      } catch {
-        // Already exists or can be created later
+      
+      if (formData.salaryStructure && !salaryStructures.includes(formData.salaryStructure)) {
+        await supabase.from('salary_structures').upsert({ name: formData.salaryStructure }, { onConflict: 'name' });
       }
 
-      if (isEdit) {
-        await db.employees.update(updateId, employeeData);
+if (isEdit) {
+        const { error } = await supabase
+          .from('employees')
+          .update(employeeData)
+          .eq('id', updateId);
+        
+        if (error) throw error;
       } else {
-        await db.employees.add({
-          ...employeeData,
-          createdAt: new Date().toISOString(),
-        });
+        const { error } = await supabase
+          .from('employees')
+          .insert(employeeData);
+        
+        if (error) throw error;
       }
 
       onBack();
@@ -394,28 +431,30 @@ const EmployeeForm = ({ employee, employeeId, onBack }) => {
       )}
       {!loading && !fetchError && (
         <>
-          <div className="flex items-center gap-4 mb-6">
-            <button onClick={onBack} className="text-gray-600 hover:text-gray-800">
-              <ArrowLeft size={24} />
-            </button>
-            <h1 className="text-3xl font-bold text-gray-800">{isEdit ? 'Edit Employee' : 'Add New Employee'}</h1>
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-4">
+              <button onClick={onBack} className="text-gray-600 hover:text-gray-800">
+                <ArrowLeft size={24} />
+              </button>
+              <h1 className="text-3xl font-bold text-gray-800">{isEdit ? 'Edit Employee' : 'Add New Employee'}</h1>
+            </div>
+            {isEdit && (
+              <button
+                type="button"
+                onClick={() => navigate('/documents')}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition flex items-center gap-2"
+              >
+                <FileText size={18} /> Documents
+              </button>
+            )}
           </div>
 
-          {computedFields.retirementStatus === 'Approaching' && (
-            <div className="bg-orange-100 border-l-4 border-orange-500 p-4 mb-6">
-              <p className="text-orange-700">
-                ⚠️ This employee is approaching retirement ({computedFields.retirementDate})
-              </p>
-            </div>
-          )}
-
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Personal Information */}
+            {/* Avatar upload */}
             <section className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-xl font-semibold mb-4 text-primary">Personal Information</h2>
+              <h2 className="text-xl font-semibold mb-4 text-primary">Employee Photo</h2>
 
-              {/* Avatar upload */}
-              <div className="flex items-center gap-6 mb-6 pb-6 border-b">
+              <div className="flex items-center gap-6">
                 <div className="relative">
                   {avatarPreview ? (
                     <div className="relative">
@@ -453,6 +492,50 @@ const EmployeeForm = ({ employee, employeeId, onBack }) => {
                   <p className="text-xs text-gray-500 mt-1">JPG, PNG or GIF. Max 500KB.</p>
                 </div>
               </div>
+            </section>
+
+            {/* Section 1: File Number, IPPIS, PSN */}
+            <section className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-xl font-semibold mb-4 text-primary">Identification</h2>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className={labelClass}>File Number *</label>
+                  <input
+                    type="text"
+                    name="fileNumber"
+                    value={formData.fileNumber}
+                    onChange={handleChange}
+                    className={inputClass('fileNumber')}
+                  />
+                  {errors.fileNumber && <p className="text-red-500 text-xs mt-1">{errors.fileNumber}</p>}
+                </div>
+                <div>
+                  <label className={labelClass}>IPPIS Number</label>
+                  <input
+                    type="text"
+                    name="ippisNumber"
+                    value={formData.ippisNumber}
+                    onChange={handleChange}
+                    className={inputClass('ippisNumber')}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>PSN</label>
+                  <input
+                    type="text"
+                    name="psn"
+                    value={formData.psn}
+                    onChange={handleChange}
+                    className={inputClass('psn')}
+                  />
+                </div>
+              </div>
+            </section>
+
+            {/* Section 2: Personal Info - Name, DOB, Sex, Phone */}
+            <section className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-xl font-semibold mb-4 text-primary">Personal Information</h2>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
@@ -529,53 +612,14 @@ const EmployeeForm = ({ employee, employeeId, onBack }) => {
                     className={inputClass('email')}
                   />
                 </div>
-                <div>
-                  <label className={labelClass}>Computed Age</label>
-                  <input
-                    type="text"
-                    value={computedFields.age}
-                    disabled
-                    className="w-full px-3 py-2 border rounded-lg bg-gray-100"
-                  />
-                </div>
               </div>
             </section>
 
-            {/* Service Information */}
+            {/* Section 3: Employment - Department, Cadre, Rank, Salary */}
             <section className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-xl font-semibold mb-4 text-primary">Service & Appointment Information</h2>
+              <h2 className="text-xl font-semibold mb-4 text-primary">Employment Information</h2>
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className={labelClass}>File Number *</label>
-                  <input
-                    type="text"
-                    name="fileNumber"
-                    value={formData.fileNumber}
-                    onChange={handleChange}
-                    className={inputClass('fileNumber')}
-                  />
-                  {errors.fileNumber && <p className="text-red-500 text-xs mt-1">{errors.fileNumber}</p>}
-                </div>
-                <div>
-                  <label className={labelClass}>IPPIS Number</label>
-                  <input
-                    type="text"
-                    name="ippisNumber"
-                    value={formData.ippisNumber}
-                    onChange={handleChange}
-                    className={inputClass('ippisNumber')}
-                  />
-                </div>
-                <div>
-                  <label className={labelClass}>PSN</label>
-                  <input
-                    type="text"
-                    name="psn"
-                    value={formData.psn}
-                    onChange={handleChange}
-                    className={inputClass('psn')}
-                  />
-                </div>
                 <div>
                   <label className={labelClass}>Department *</label>
                   <input
@@ -639,7 +683,7 @@ const EmployeeForm = ({ employee, employeeId, onBack }) => {
                     value={formData.step}
                     onChange={handleChange}
                     min="1"
-                    max="5"
+                    max="17"
                     className={inputClass('step')}
                   />
                 </div>
@@ -696,63 +740,16 @@ const EmployeeForm = ({ employee, employeeId, onBack }) => {
                     <p className="text-red-500 text-xs mt-1">{errors.dateOfPresentAppointment}</p>
                   )}
                 </div>
-                <div>
-                  <label className={labelClass}>Status *</label>
-                  <select
-                    name="status"
-                    value={formData.status}
-                    onChange={handleChange}
-                    className={inputClass('status')}
-                  >
-                    <option value="Active">Active</option>
-                    <option value="Suspended">Suspended</option>
-                    <option value="Retired">Retired</option>
-                    <option value="Resigned">Resigned</option>
-                  </select>
-                  {errors.status && <p className="text-red-500 text-xs mt-1">{errors.status}</p>}
-                </div>
-                <div>
-                  <label className={labelClass}>Years of Service</label>
-                  <input
-                    type="text"
-                    value={computedFields.yearsOfService}
-                    disabled
-                    className="w-full px-3 py-2 border rounded-lg bg-gray-100"
-                  />
-                </div>
-                <div>
-                  <label className={labelClass}>Retirement Date</label>
-                  <input
-                    type="text"
-                    value={computedFields.retirementDate}
-                    disabled
-                    className="w-full px-3 py-2 border rounded-lg bg-gray-100"
-                  />
-                </div>
-                <div>
-                  <label className={labelClass}>Retirement Status</label>
-                  <input
-                    type="text"
-                    value={computedFields.retirementStatus}
-                    disabled
-                    className={`w-full px-3 py-2 border rounded-lg font-semibold ${
-                      computedFields.retirementStatus === 'Retired'
-                        ? 'bg-red-100 text-red-800'
-                        : computedFields.retirementStatus === 'Approaching'
-                          ? 'bg-orange-100 text-orange-800'
-                          : 'bg-green-100 text-green-800'
-                    }`}
-                  />
-                </div>
               </div>
             </section>
 
-            {/* Pension & Origin */}
+            {/* Section 4: Pension - PFA, RSA */}
             <section className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-xl font-semibold mb-4 text-primary">Pension & Origin Information</h2>
+              <h2 className="text-xl font-semibold mb-4 text-primary">Pension Information</h2>
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className={labelClass}>PFA Name *</label>
+                  <label className={labelClass}>PFA Name</label>
                   <input
                     type="text"
                     name="pfaName"
@@ -766,7 +763,6 @@ const EmployeeForm = ({ employee, employeeId, onBack }) => {
                       <option key={p} value={p} />
                     ))}
                   </datalist>
-                  {errors.pfaName && <p className="text-red-500 text-xs mt-1">{errors.pfaName}</p>}
                 </div>
                 <div>
                   <label className={labelClass}>RSA Pin</label>
@@ -777,8 +773,15 @@ const EmployeeForm = ({ employee, employeeId, onBack }) => {
                     onChange={handleChange}
                     className={inputClass('rsaPin')}
                   />
-                  {errors.rsaPin && <p className="text-red-500 text-xs mt-1">{errors.rsaPin}</p>}
                 </div>
+              </div>
+            </section>
+
+            {/* Section 5: Origin - State, LGA, Zone */}
+            <section className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-xl font-semibold mb-4 text-primary">State of Origin</h2>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className={labelClass}>State *</label>
                   <select name="state" value={formData.state} onChange={handleChange} className={inputClass('state')}>
@@ -822,19 +825,55 @@ const EmployeeForm = ({ employee, employeeId, onBack }) => {
               </div>
             </section>
 
-            {/* Additional Info */}
+            {/* Section 6: Additional - Status, Location, Qualification, Job, Salary Structure, Remark */}
             <section className="bg-white rounded-lg shadow p-6">
               <h2 className="text-xl font-semibold mb-4 text-primary">Additional Information</h2>
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
+                  <label className={labelClass}>Status *</label>
+                  <select
+                    name="status"
+                    value={formData.status}
+                    onChange={handleChange}
+                    className={inputClass('status')}
+                  >
+                    <option value="Active">Active</option>
+                    <option value="Suspended">Suspended</option>
+                    <option value="Retired">Retired</option>
+                    <option value="Resigned">Resigned</option>
+                  </select>
+                  {errors.status && <p className="text-red-500 text-xs mt-1">{errors.status}</p>}
+                </div>
+                <div>
                   <label className={labelClass}>Location (Duty Station)</label>
-                  <input
-                    type="text"
+                  <select
                     name="location"
                     value={formData.location}
                     onChange={handleChange}
                     className={inputClass('location')}
+                  >
+                    <option value="">-- Select Location --</option>
+                    {sites.map(site => (
+                      <option key={site} value={site}>{site}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className={labelClass}>Salary Structure</label>
+                  <input
+                    type="text"
+                    name="salaryStructure"
+                    value={formData.salaryStructure}
+                    onChange={handleChange}
+                    list="salary-structures-list"
+                    className={inputClass('salaryStructure')}
                   />
+                  <datalist id="salary-structures-list">
+                    {salaryStructures.map((s) => (
+                      <option key={s} value={s} />
+                    ))}
+                  </datalist>
                 </div>
                 <div>
                   <label className={labelClass}>Qualification</label>
@@ -857,20 +896,22 @@ const EmployeeForm = ({ employee, employeeId, onBack }) => {
                   />
                 </div>
                 <div>
-                  <label className={labelClass}>Salary Structure</label>
-                  <input
-                    type="text"
-                    name="salaryStructure"
-                    value={formData.salaryStructure}
+                  <label className={labelClass}>Reports To (Manager)</label>
+                  <select
+                    name="managerId"
+                    value={formData.managerId}
                     onChange={handleChange}
-                    list="salary-structures-list"
-                    className={inputClass('salaryStructure')}
-                  />
-                  <datalist id="salary-structures-list">
-                    {salaryStructures.map((s) => (
-                      <option key={s} value={s} />
-                    ))}
-                  </datalist>
+                    className={inputClass('managerId')}
+                  >
+                    <option value="">-- No Manager --</option>
+                    {managers
+                      .filter(m => m.id !== updateId)
+                      .map(m => (
+                        <option key={m.id} value={m.id}>
+                          {m.surname}, {m.first_name} ({m.rank_name || 'No rank'})
+                        </option>
+                      ))}
+                  </select>
                 </div>
                 <div className="md:col-span-3">
                   <label className={labelClass}>Remark</label>
@@ -880,6 +921,32 @@ const EmployeeForm = ({ employee, employeeId, onBack }) => {
                     onChange={handleChange}
                     rows="3"
                     className={inputClass('remark')}
+                  />
+                </div>
+              </div>
+            </section>
+
+            {/* Section 7: Computed Fields */}
+            <section className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-xl font-semibold mb-4 text-primary">Computed Information</h2>
+
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                  <label className={labelClass}>Computed Age</label>
+                  <input
+                    type="text"
+                    value={computedFields.age}
+                    disabled
+                    className="w-full px-3 py-2 border rounded-lg bg-gray-100"
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Years of Service</label>
+                  <input
+                    type="text"
+                    value={computedFields.yearsOfService}
+                    disabled
+                    className="w-full px-3 py-2 border rounded-lg bg-gray-100"
                   />
                 </div>
               </div>
@@ -897,6 +964,17 @@ const EmployeeForm = ({ employee, employeeId, onBack }) => {
                 {isEdit ? 'Update Employee' : 'Create Employee'}
               </button>
             </div>
+            {isEdit && (
+              <div className="mt-6 pt-6 border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => navigate('/documents')}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition flex items-center justify-center gap-2"
+                >
+                  <FileText size={20} /> Manage Employee Documents
+                </button>
+              </div>
+            )}
           </form>
         </>
       )}

@@ -1057,6 +1057,14 @@ export const defaultRanks = [
 // Default Salary Structures
 export const defaultSalaryStructures = ['CONSS', 'CONHESS', 'CONMESS', 'CONPASS', 'CONTISS', 'CONPOLIS', 'Customised'];
 
+// Default Sites/Locations for multi-site support
+export const defaultSites = [
+  'Headquarters (Kano)',
+  'Abuja Office',
+  'Kaduna Office',
+  'Lagos Office',
+];
+
 export function getLGAsForState(stateName) {
   const state = nigerianStates.find((s) => s.name === stateName);
   return state ? state.lgas : [];

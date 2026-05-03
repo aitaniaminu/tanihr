@@ -1,107 +1,97 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { db } from '../../db/indexedDB';
+import supabase from '../../lib/supabase';
 import { ChevronUp, ChevronDown, Pencil, Trash2, Eye } from 'lucide-react';
 
 const PAGE_SIZE = 20;
 
 export default function EmployeeList() {
   const [employees, setEmployees] = useState([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [sortField, setSortField] = useState('surname');
   const [sortDir, setSortDir] = useState('asc');
   const [filterDept, setFilterDept] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
   const [page, setPage] = useState(1);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
 
-  useEffect(() => {
-    const filter = searchParams.get('filter');
-    if (filter === 'retiring-soon') {
-      setFilterStatus('retiring-soon');
-    }
-  }, [searchParams]);
-
-  useEffect(() => {
-    const loadEmployees = async () => {
-      try {
-        const all = await db.employees.toArray();
-        setEmployees(all);
-      } catch (err) {
-        console.error('Error loading employees:', err);
-        setError('Failed to load employee data. Please refresh the page.');
-      } finally {
-        setLoading(false);
+  const loadPage = async (pageNum) => {
+    try {
+      setLoading(true);
+      const from = (pageNum - 1) * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+      
+      const { data, count } = await supabase
+        .from('employees')
+        .select('*', { count: 'exact' })
+        .order(sortField, { ascending: sortDir === 'asc' })
+        .range(from, to);
+      
+      if (data) {
+        setEmployees(data || []);
+        setTotalCount(count || 0);
       }
-    };
-    loadEmployees();
-  }, []);
-
-  const departments = useMemo(() => {
-    const depts = new Set(employees.map((e) => e.department).filter(Boolean));
-    return [...depts].sort();
-  }, [employees]);
-
-  const filteredAndSorted = useMemo(() => {
-    let result = [...employees];
-
-    // Search
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      result = result.filter(
-        (emp) =>
-          emp.surname?.toLowerCase().includes(term) ||
-          emp.firstName?.toLowerCase().includes(term) ||
-          emp.fileNumber?.toLowerCase().includes(term) ||
-          emp.department?.toLowerCase().includes(term)
-      );
+    } catch (err) {
+      console.error('Error loading employees:', err);
+      setError('Failed to load employee data.');
+    } finally {
+      setLoading(false);
     }
+  };
 
-    // Department filter
-    if (filterDept) {
-      result = result.filter((emp) => emp.department === filterDept);
+  useEffect(() => {
+    loadPage(page);
+  }, [page, sortField, sortDir]);
+
+  useEffect(() => {
+    if (searchTerm || filterDept) {
+      setPage(1);
     }
+  }, [searchTerm, filterDept]);
 
-    // Status filter
-    if (filterStatus === 'retiring-soon') {
-      const now = new Date();
-      result = result.filter((emp) => {
-        if (!emp.retirementDate) return false;
-        const ret = new Date(emp.retirementDate);
-        if (ret <= now) return false;
-        const months = (ret.getFullYear() - now.getFullYear()) * 12 + (ret.getMonth() - now.getMonth());
-        return months > 0 && months <= 12;
-      });
-    } else if (filterStatus === 'active') {
-      const now = new Date();
-      result = result.filter((emp) => !emp.retirementDate || new Date(emp.retirementDate) > now);
-    } else if (filterStatus === 'retired') {
-      const now = new Date();
-      result = result.filter((emp) => emp.retirementDate && new Date(emp.retirementDate) <= now);
+  const handleSearch = async () => {
+    if (!searchTerm && !filterDept) {
+      await loadPage(1);
+      return;
     }
+    
+    try {
+      setLoading(true);
+      let query = supabase
+        .from('employees')
+        .select('*', { count: 'exact' });
+      
+      if (searchTerm) {
+        const term = `%${searchTerm}%`;
+        query = query.or(`surname.ilike.${term},firstName.ilike.${term},fileNumber.ilike.${term},department.ilike.${term}`);
+      }
+      
+      if (filterDept) {
+        query = query.eq('department', filterDept);
+      }
+      
+      const { data, count } = await query
+        .order(sortField, { ascending: sortDir === 'asc' })
+        .range(0, PAGE_SIZE - 1);
+      
+      setEmployees(data || []);
+      setTotalCount(count || 0);
+    } catch (err) {
+      console.error('Search error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    // Sort
-    result.sort((a, b) => {
-      const aVal = (a[sortField] || '').toString().toLowerCase();
-      const bVal = (b[sortField] || '').toString().toLowerCase();
-      if (aVal < bVal) return sortDir === 'asc' ? -1 : 1;
-      if (aVal > bVal) return sortDir === 'asc' ? 1 : -1;
-      return 0;
-    });
-
-    return result;
-  }, [employees, searchTerm, filterDept, filterStatus, sortField, sortDir]);
-
-  const totalPages = Math.ceil(filteredAndSorted.length / PAGE_SIZE);
-  const paginated = filteredAndSorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
   useEffect(() => {
     setPage(1);
-  }, [searchTerm, filterDept, filterStatus]);
+  }, [searchTerm, filterDept]);
 
   const handleSort = (field) => {
     if (sortField === field) {
@@ -110,14 +100,7 @@ export default function EmployeeList() {
       setSortField(field);
       setSortDir('asc');
     }
-  };
-
-  const getRetirementStatus = (emp) => {
-    if (!emp.retirementDate) return { label: 'Active', color: 'bg-green-100 text-green-800' };
-    const months = Math.ceil((new Date(emp.retirementDate) - new Date()) / (1000 * 60 * 60 * 24 * 30));
-    if (months <= 0) return { label: 'Retired', color: 'bg-red-100 text-red-800' };
-    if (months <= 12) return { label: `Approaching (${months}m)`, color: 'bg-yellow-100 text-yellow-800' };
-    return { label: 'Active', color: 'bg-green-100 text-green-800' };
+    loadPage(1);
   };
 
   const handleDelete = async (id) => {
@@ -186,41 +169,24 @@ export default function EmployeeList() {
               className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
               aria-label="Search employees"
             />
-            <select
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none"
-              value={filterDept}
-              onChange={(e) => setFilterDept(e.target.value)}
-              aria-label="Filter by department"
+            <button
+              onClick={handleSearch}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
             >
-              <option value="">All Departments</option>
-              {departments.map((d) => (
-                <option key={d} value={d}>
-                  {d}
-                </option>
-              ))}
-            </select>
-            <select
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none"
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              aria-label="Filter by status"
-            >
-              <option value="">All Statuses</option>
-              <option value="active">Active</option>
-              <option value="retiring-soon">Retiring Soon</option>
-              <option value="retired">Retired</option>
-            </select>
+              Search
+            </button>
           </div>
-          {(searchTerm || filterDept || filterStatus) && (
+          {(searchTerm || filterDept) && (
             <p className="text-sm text-gray-500 mt-2">
-              Showing {filteredAndSorted.length} of {employees.length} employees
+              Showing {totalCount} employees
               <button
                 onClick={() => {
                   setSearchTerm('');
                   setFilterDept('');
-                  setFilterStatus('');
+                  loadPage(1);
                 }}
                 className="ml-2 text-blue-600 hover:underline"
               >
@@ -239,16 +205,13 @@ export default function EmployeeList() {
                 <SortHeader field="surname">Name</SortHeader>
                 <SortHeader field="department">Department</SortHeader>
                 <SortHeader field="rank">Rank</SortHeader>
-                <SortHeader field="retirementDate">Status</SortHeader>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {paginated.map((emp) => {
-                const status = getRetirementStatus(emp);
-                return (
+              {employees.map((emp) => (
                   <tr key={emp.id} className="hover:bg-gray-50 transition">
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{emp.fileNumber}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -268,13 +231,6 @@ export default function EmployeeList() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{emp.department}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{emp.rank}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${status.color}`}
-                      >
-                        {status.label}
-                      </span>
-                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-3">
                       <button
                         onClick={() => navigate(`/employees/${emp.id}`)}
@@ -299,13 +255,12 @@ export default function EmployeeList() {
                       </button>
                     </td>
                   </tr>
-                );
-              })}
-            </tbody>
+                ))}
+              </tbody>
           </table>
-          {filteredAndSorted.length === 0 && (
+          {totalCount === 0 && (
             <div className="p-8 text-center text-gray-500">
-              {searchTerm || filterDept || filterStatus
+              {searchTerm || filterDept
                 ? 'No employees match your filters.'
                 : 'No employees found. Import CSV or add manually.'}
             </div>
@@ -316,7 +271,7 @@ export default function EmployeeList() {
         {totalPages > 1 && (
           <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
             <p className="text-sm text-gray-600">
-              Page {page} of {totalPages} ({filteredAndSorted.length} records)
+              Page {page} of {totalPages} ({totalCount} records)
             </p>
             <div className="flex gap-2">
               <button

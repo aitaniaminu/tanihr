@@ -10,6 +10,9 @@ const EmployeeForm = lazy(() => import('./pages/Employees/EmployeeForm'));
 const EmployeeDetails = lazy(() => import('./pages/Employees/EmployeeDetails'));
 const ImportEmployees = lazy(() => import('./pages/Employees/ImportEmployees'));
 const DepartmentList = lazy(() => import('./pages/Departments/DepartmentList'));
+const OrgChart = lazy(() => import('./pages/OrgChart'));
+const DocumentVault = lazy(() => import('./pages/DocumentVault'));
+const SyncSupabase = lazy(() => import('./pages/SyncSupabase'));
 
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-64">
@@ -27,7 +30,7 @@ const ProtectedRoute = ({ children }) => {
 const EditEmployeeWrapper = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  return <EmployeeForm employeeId={parseInt(id)} onBack={() => navigate('/employees')} />;
+  return <EmployeeForm employeeId={id} onBack={() => navigate('/employees')} />;
 };
 
 const EmployeeFormNewWrapper = () => {
@@ -37,7 +40,7 @@ const EmployeeFormNewWrapper = () => {
 
 const EmployeeDetailsWrapper = () => {
   const { id } = useParams();
-  return <EmployeeDetails employeeId={parseInt(id)} />;
+  return <EmployeeDetails employeeId={id} />;
 };
 
 const LazyRoute = ({ children }) => <Suspense fallback={<PageLoader />}>{children}</Suspense>;
@@ -127,6 +130,42 @@ export default function App() {
               <LazyRoute>
                 <Layout>
                   <DepartmentList />
+                </Layout>
+              </LazyRoute>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/org-chart"
+          element={
+            <ProtectedRoute>
+              <LazyRoute>
+                <Layout>
+                  <OrgChart />
+                </Layout>
+              </LazyRoute>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/documents"
+          element={
+            <ProtectedRoute>
+              <LazyRoute>
+                <Layout>
+                  <DocumentVault />
+                </Layout>
+              </LazyRoute>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/sync"
+          element={
+            <ProtectedRoute>
+              <LazyRoute>
+                <Layout>
+                  <SyncSupabase />
                 </Layout>
               </LazyRoute>
             </ProtectedRoute>

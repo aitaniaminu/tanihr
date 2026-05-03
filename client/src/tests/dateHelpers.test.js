@@ -97,13 +97,17 @@ describe('dateHelpers', () => {
 
   describe('calculateMonthsToRetirement', () => {
     it('should return positive months for future retirement', () => {
-      const result = calculateMonthsToRetirement('01-11-2026');
+      const now = new Date();
+      const future = new Date(now.getFullYear(), now.getMonth() + 6, 15).toISOString().split('T')[0];
+      const result = calculateMonthsToRetirement(future);
       expect(result).toBeGreaterThan(0);
       expect(result).toBeLessThanOrEqual(6);
     });
 
     it('should return negative months for past retirement', () => {
-      const result = calculateMonthsToRetirement('01-01-2020');
+      const now = new Date();
+      const past = new Date(now.getFullYear() - 1, now.getMonth(), 15).toISOString().split('T')[0];
+      const result = calculateMonthsToRetirement(past);
       expect(result).toBeLessThan(0);
     });
 
@@ -118,15 +122,21 @@ describe('dateHelpers', () => {
     });
 
     it('should return Retired for past date', () => {
-      expect(getRetirementStatus('01-01-2020')).toBe('Retired');
+      const now = new Date();
+      const past = new Date(now.getFullYear() - 1, now.getMonth(), 15).toISOString().split('T')[0];
+      expect(getRetirementStatus(past)).toBe('Retired');
     });
 
     it('should return Approaching for retirement within 12 months', () => {
-      expect(getRetirementStatus('01-11-2026')).toBe('Approaching');
+      const now = new Date();
+      const nearFuture = new Date(now.getFullYear(), now.getMonth() + 6, 15).toISOString().split('T')[0];
+      expect(getRetirementStatus(nearFuture)).toBe('Approaching');
     });
 
     it('should return Active for retirement beyond 12 months', () => {
-      expect(getRetirementStatus('01-01-2030')).toBe('Active');
+      const now = new Date();
+      const future = new Date(now.getFullYear() + 2, now.getMonth(), 15).toISOString().split('T')[0];
+      expect(getRetirementStatus(future)).toBe('Active');
     });
   });
 });

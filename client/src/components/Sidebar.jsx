@@ -1,11 +1,14 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LayoutDashboard, Users, Download, Building2, X } from 'lucide-react';
+import { LayoutDashboard, Users, Download, Building2, X, Network, FileText, RefreshCw } from 'lucide-react';
 
 const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/employees', label: 'Employees', icon: Users },
   { path: '/departments', label: 'Departments', icon: Building2 },
+  { path: '/org-chart', label: 'Org Chart', icon: Network },
+  { path: '/documents', label: 'Document Vault', icon: FileText },
+  { path: '/sync', label: 'Sync Data', icon: RefreshCw },
   { path: '/import', label: 'Import CSV', icon: Download },
 ];
 
@@ -52,11 +55,11 @@ export default function Sidebar({ isOpen, toggle }) {
         <div className="absolute bottom-0 w-full p-4 border-t border-green-700">
           <div className="flex items-center mb-4">
             <div className="w-10 h-10 rounded-full bg-green-600 flex items-center justify-center font-bold">
-              {user?.username?.charAt(0).toUpperCase()}
+              {user?.username?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase()}
             </div>
             <div className="ml-3">
-              <p className="text-sm font-medium">{user?.username}</p>
-              <p className="text-xs text-green-300 capitalize">{user?.role}</p>
+              <p className="text-sm font-medium">{user?.username || user?.email}</p>
+              <p className="text-xs text-green-300 capitalize">{user?.role || 'Employee'}</p>
             </div>
           </div>
           <button

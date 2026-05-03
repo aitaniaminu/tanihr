@@ -161,14 +161,20 @@ export function calculateRetirementDate(dob, firstAppointment) {
  * @returns {number|null} - Months to retirement
  */
 export function calculateMonthsToRetirement(retirementDate) {
-  const retDate = typeof retirementDate === 'string' ? parseDDMMYYYY(retirementDate) : retirementDate;
-  if (!retDate) return null;
+  if (!retirementDate) return null;
+  
+  const retDate = typeof retirementDate === 'string' ? new Date(retirementDate) : retirementDate;
+  if (isNaN(retDate.getTime())) return null;
 
   const today = new Date();
-  const months = (retDate.getFullYear() - today.getFullYear()) * 12;
-  const monthDiff = retDate.getMonth() - today.getMonth();
-
-  return months + monthDiff;
+  const todayMonth = today.getFullYear() * 12 + today.getMonth();
+  const retMonth = retDate.getFullYear() * 12 + retDate.getMonth();
+  const monthDiff = retMonth - todayMonth;
+  
+  if (retDate.getDate() < today.getDate()) {
+    return monthDiff - 1;
+  }
+  return monthDiff;
 }
 
 /**
@@ -177,14 +183,16 @@ export function calculateMonthsToRetirement(retirementDate) {
  * @returns {string} - 'Active', 'Approaching', or 'Retired'
  */
 export function getRetirementStatus(retirementDate) {
-  const retDate = typeof retirementDate === 'string' ? parseDDMMYYYY(retirementDate) : retirementDate;
-  if (!retDate) return 'Active';
+  if (!retirementDate) return 'Active';
+
+  const retDate = typeof retirementDate === 'string' ? new Date(retirementDate) : retirementDate;
+  if (isNaN(retDate.getTime())) return 'Active';
 
   const today = new Date();
   if (retDate <= today) return 'Retired';
 
   const monthsToRet = calculateMonthsToRetirement(retDate);
-  if (monthsToRet <= 12) return 'Approaching';
+  if (monthsToRet !== null && monthsToRet <= 12) return 'Approaching';
 
   return 'Active';
 }

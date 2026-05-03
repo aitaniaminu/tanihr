@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { db } from '../../db/indexedDB';
+import supabase from '../../lib/supabase';
 import { Pencil, Trash2, Plus, Search } from 'lucide-react';
 import { defaultDepartments } from '../../data/nigerianData';
 
@@ -21,13 +21,15 @@ export default function DepartmentList() {
 
   const loadData = async () => {
     try {
-      const all = await db.departments.toArray();
-      setDepartments(all);
+      const { data: depts } = await supabase.from('departments').select('id, name');
+      setDepartments(depts || []);
+      
+      const { data: emps } = await supabase.from('employees').select('department_name');
       const counts = {};
-      for (const dept of all) {
-        const count = await db.employees.where('department').equals(dept.name).count();
-        counts[dept.id] = count;
-      }
+      (emps || []).forEach(emp => {
+        const dept = emp.department_name;
+        counts[dept] = (counts[dept] || 0) + 1;
+      });
       setEmployeeCounts(counts);
     } catch (err) {
       console.error('Error loading departments:', err);
@@ -66,24 +68,20 @@ export default function DepartmentList() {
 
     try {
       if (editingDept) {
-        await db.departments.update(editingDept.id, { name: trimmed });
+        await supabase.from('departments').upsert({ name: trimmed }, { onConflict: 'name' });
       } else {
-        await db.departments.add({ name: trimmed });
+        await supabase.from('departments').upsert({ name: trimmed }, { onConflict: 'name' });
       }
       setModalOpen(false);
       loadData();
     } catch (err) {
-      if (err.message?.includes('Key already exists') || err.name === 'ConstraintError') {
-        setFormError('A department with this name already exists.');
-      } else {
-        setFormError('Failed to save department. Please try again.');
-      }
+      setFormError('Failed to save department. Please try again.');
     }
   };
 
   const handleDelete = async (id) => {
     try {
-      await db.departments.delete(id);
+      await supabase.from('departments').delete().eq('name', id);
       setDeleteConfirm(null);
       loadData();
     } catch (err) {
@@ -94,11 +92,7 @@ export default function DepartmentList() {
 
   const seedDefaults = async () => {
     for (const name of defaultDepartments) {
-      try {
-        await db.departments.add({ name });
-      } catch {
-        // skip if already exists
-      }
+      await supabase.from('departments').upsert({ name }, { onConflict: 'name' });
     }
     loadData();
   };

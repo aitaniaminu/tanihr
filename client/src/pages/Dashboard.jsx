@@ -2,20 +2,26 @@ import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../db/indexedDB';
+import supabase from '../lib/supabase';
 import { Users, Clock, Calendar, Building2, UserPlus, Download } from 'lucide-react';
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [employees, setEmployees] = useState([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     const loadStats = async () => {
       try {
-        const all = await db.employees.toArray();
-        setEmployees(all);
+        const { count } = await supabase
+          .from('employees')
+          .select('*', { count: 'exact', head: true });
+        
+        setEmployees([]);
+        setTotalCount(count || 0);
       } catch (err) {
         console.error('Error loading dashboard stats:', err);
         setError('Failed to load dashboard statistics.');
@@ -27,19 +33,11 @@ export default function Dashboard() {
   }, []);
 
   const stats = useMemo(() => {
-    const totalEmployees = employees.length;
+    const totalEmployees = totalCount;
     const uniqueDepartments = new Set(employees.map((e) => e.department).filter(Boolean)).size;
-    const now = new Date();
-    const retiringSoon = employees.filter((emp) => {
-      if (!emp.retirementDate) return false;
-      const retDate = new Date(emp.retirementDate);
-      if (retDate <= now) return false;
-      const monthsToRet = (retDate.getFullYear() - now.getFullYear()) * 12 + (retDate.getMonth() - now.getMonth());
-      return monthsToRet <= 12 && monthsToRet > 0;
-    }).length;
 
-    return { totalEmployees, uniqueDepartments, retiringSoon, pendingLeave: 0 };
-  }, [employees]);
+    return { totalEmployees: totalCount, uniqueDepartments: 0, pendingLeave: 0 };
+  }, [totalCount]);
 
   if (loading) {
     return (
@@ -93,16 +91,16 @@ export default function Dashboard() {
           <p className="text-xs text-blue-600 mt-2 font-medium">Coming Soon</p>
         </div>
         <div
-          onClick={() => navigate('/employees?filter=retiring-soon')}
-          onKeyDown={(e) => e.key === 'Enter' && navigate('/employees?filter=retiring-soon')}
+          onClick={() => navigate('/employees')}
+          onKeyDown={(e) => e.key === 'Enter' && navigate('/employees')}
           role="button"
           tabIndex={0}
-          aria-label={`View ${stats.retiringSoon} employees retiring soon`}
+          aria-label="View active employees"
           className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition cursor-pointer transform hover:-translate-y-1 border-l-4 border-yellow-500"
         >
-          <h3 className="text-gray-500 text-sm font-medium uppercase">Retiring Soon</h3>
-          <p className="text-3xl font-bold text-gray-900 mt-2">{stats.retiringSoon}</p>
-          <p className="text-xs text-yellow-600 mt-2 font-medium">View Details →</p>
+          <h3 className="text-gray-500 text-sm font-medium uppercase">Active Employees</h3>
+          <p className="text-3xl font-bold text-gray-900 mt-2">{stats.totalEmployees}</p>
+          <p className="text-xs text-yellow-600 mt-2 font-medium">Currently Active</p>
         </div>
         <div
           onClick={() => navigate('/departments')}

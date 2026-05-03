@@ -10,10 +10,22 @@ vi.mock('../db/indexedDB', () => {
     ranks: { toArray: vi.fn(() => Promise.resolve([])) },
     pfas: { toArray: vi.fn(() => Promise.resolve([])) },
     salaryStructures: { toArray: vi.fn(() => Promise.resolve([])) },
-    employees: { add: vi.fn(() => Promise.resolve(1)), update: vi.fn(() => Promise.resolve(1)), get: vi.fn() },
+    employees: { 
+      toArray: vi.fn(() => Promise.resolve([])),
+      add: vi.fn(() => Promise.resolve(1)), 
+      update: vi.fn(() => Promise.resolve(1)), 
+      get: vi.fn() 
+    },
+    auditLog: {
+      add: vi.fn(() => Promise.resolve(1)),
+    },
   };
   return { db: mockDb };
 });
+
+vi.mock('../context/AuthContext', () => ({
+  useAuth: vi.fn(() => ({ user: { username: 'testuser' } })),
+}));
 
 vi.mock('../data/nigerianData', () => ({
   nigerianStates: [{ name: 'Lagos', lgas: ['Ikeja', 'Epe'] }],
@@ -23,6 +35,7 @@ vi.mock('../data/nigerianData', () => ({
   defaultDepartments: [],
   defaultRanks: [],
   defaultSalaryStructures: [],
+  defaultSites: ['Headquarters (Kano)', 'Abuja Office'],
 }));
 
 describe('EmployeeForm', () => {
@@ -34,6 +47,7 @@ describe('EmployeeForm', () => {
     db.ranks.toArray.mockResolvedValue([]);
     db.pfas.toArray.mockResolvedValue([]);
     db.salaryStructures.toArray.mockResolvedValue([]);
+    db.employees.toArray.mockResolvedValue([]);
     db.employees.add.mockResolvedValue(1);
     db.employees.update.mockResolvedValue(1);
   });
