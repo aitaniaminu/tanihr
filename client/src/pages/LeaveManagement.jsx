@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import supabase from '../../lib/supabase';
+import supabase from '../lib/supabase';
 import { Plus, Search, Calendar, X, Check, Clock, Trash2, Edit, User, Filter } from 'lucide-react';
 
 const LEAVE_TYPES = ['Annual', 'Sick', 'Maternity', 'Paternity', 'Casual', 'Study', 'Unpaid'];

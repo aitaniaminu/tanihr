@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import supabase from '../../lib/supabase';
+import supabase from '../lib/supabase';
 import { 
   BarChart3, PieChart, TrendingUp, Users, Building2, 
   UserPlus, UserMinus, Calendar, Download

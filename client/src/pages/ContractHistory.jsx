@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import supabase from '../../lib/supabase';
+import supabase from '../lib/supabase';
 import { Plus, Search, FileText, X, Check, Clock, Trash2, Edit, TrendingUp, DollarSign, Briefcase, Filter, Download } from 'lucide-react';
 
 const CONTRACT_TYPES = ['Promotion', 'Salary Increase', 'Transfer', 'Demotion', 'Contract Renewal', 'Termination', 'Appointment'];

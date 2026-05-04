@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import supabase from '../../lib/supabase';
+import supabase from '../lib/supabase';
 import { Plus, Search, Award, X, Check, Clock, Trash2, Edit } from 'lucide-react';
 
 const SKILL_LEVELS = ['Beginner', 'Intermediate', 'Advanced', 'Expert'];
