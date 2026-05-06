@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useSettings } from '../context/SettingsContext';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -12,6 +13,7 @@ export default function Login() {
   const [mfaToken, setMfaToken] = useState('');
   const navigate = useNavigate();
   const auth = useAuth();
+  const { clientName } = useSettings();
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -90,7 +92,7 @@ export default function Login() {
             </svg>
           </div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">TaniHR</h1>
-          <p className="text-gray-600">Nigerian Civil Service HR Management</p>
+          <p className="text-gray-600">{clientName || 'HR Management System'}</p>
         </div>
 
         <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
@@ -113,7 +115,7 @@ export default function Login() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
-                placeholder="admin or admin@tanihr.com"
+                placeholder="Enter your email or username"
                 required
               />
             </div>
@@ -181,11 +183,8 @@ export default function Login() {
           </form>
 
           <div className="mt-6 pt-6 border-t border-gray-100">
-            <p className="text-xs text-gray-500 text-center mb-2">
-              Default: admin / admin123
-            </p>
             <p className="text-xs text-gray-500 text-center">
-              Powered by Supabase Authentication
+              Powered by Tani Nigeria Ltd
             </p>
           </div>
         </div>

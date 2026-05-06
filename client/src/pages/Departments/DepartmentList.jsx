@@ -1,16 +1,18 @@
 import { useEffect, useState, useMemo } from 'react';
 import supabase from '../../lib/supabase';
-import { Pencil, Trash2, Plus, Search } from 'lucide-react';
+import { Pencil, Trash2, Plus, Search, User } from 'lucide-react';
 import { defaultDepartments } from '../../data/nigerianData';
 
 export default function DepartmentList() {
   const [departments, setDepartments] = useState([]);
+  const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingDept, setEditingDept] = useState(null);
   const [deptName, setDeptName] = useState('');
+  const [hodId, setHodId] = useState('');
   const [formError, setFormError] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [employeeCounts, setEmployeeCounts] = useState({});
@@ -21,10 +23,12 @@ export default function DepartmentList() {
 
   const loadData = async () => {
     try {
-      const { data: depts } = await supabase.from('departments').select('id, name');
+      const { data: depts } = await supabase.from('departments').select('id, name, hod_id, employees(surname, first_name)');
       setDepartments(depts || []);
       
-      const { data: emps } = await supabase.from('employees').select('department_name');
+      const { data: emps } = await supabase.from('employees').select('id, surname, first_name, department_name');
+      setEmployees(emps || []);
+      
       const counts = {};
       (emps || []).forEach(emp => {
         const dept = emp.department_name;
@@ -48,6 +52,7 @@ export default function DepartmentList() {
   const openAddModal = () => {
     setEditingDept(null);
     setDeptName('');
+    setHodId('');
     setFormError('');
     setModalOpen(true);
   };
@@ -55,6 +60,7 @@ export default function DepartmentList() {
   const openEditModal = (dept) => {
     setEditingDept(dept);
     setDeptName(dept.name);
+    setHodId(dept.hod_id || '');
     setFormError('');
     setModalOpen(true);
   };
@@ -68,9 +74,9 @@ export default function DepartmentList() {
 
     try {
       if (editingDept) {
-        await supabase.from('departments').upsert({ name: trimmed }, { onConflict: 'name' });
+        await supabase.from('departments').update({ name: trimmed, hod_id: hodId || null }).eq('id', editingDept.id);
       } else {
-        await supabase.from('departments').upsert({ name: trimmed }, { onConflict: 'name' });
+        await supabase.from('departments').insert({ name: trimmed, hod_id: hodId || null });
       }
       setModalOpen(false);
       loadData();
@@ -159,6 +165,9 @@ export default function DepartmentList() {
                   Department
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Head of Department
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Employees
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -170,7 +179,10 @@ export default function DepartmentList() {
               {filtered.map((dept) => (
                 <tr key={dept.id} className="hover:bg-gray-50 transition">
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{dept.name}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{employeeCounts[dept.id] ?? 0}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {dept.employees ? `${dept.employees.surname}, ${dept.employees.first_name}` : '-'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{employeeCounts[dept.name] ?? 0}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-3">
                     <button
                       onClick={() => openEditModal(dept)}
@@ -230,6 +242,22 @@ export default function DepartmentList() {
               onKeyDown={(e) => e.key === 'Enter' && handleSave()}
               autoFocus
             />
+            <label className="block text-sm font-medium text-gray-700 mt-4 mb-1" htmlFor="dept-hod">
+              Head of Department (optional)
+            </label>
+            <select
+              id="dept-hod"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none"
+              value={hodId}
+              onChange={(e) => setHodId(e.target.value)}
+            >
+              <option value="">Select HOD</option>
+              {employees.map(emp => (
+                <option key={emp.id} value={emp.id}>
+                  {emp.surname}, {emp.first_name}
+                </option>
+              ))}
+            </select>
             {formError && <p className="text-red-600 text-sm mt-2">{formError}</p>}
             <div className="flex justify-end gap-3 mt-4">
               <button onClick={() => setModalOpen(false)} className="px-4 py-2 border rounded-lg hover:bg-gray-50">

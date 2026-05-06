@@ -1,5 +1,5 @@
-import { useEffect, useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { db } from '../../db/indexedDB';
 import supabase from '../../lib/supabase';
 import { 
@@ -154,8 +154,35 @@ export default function EmployeeList() {
   const [showFilters, setShowFilters] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const isInitialMount = useRef(true);
 
-  const loadPage = async (pageNum = 1) => {
+  const initialLoadRef = useRef(false);
+
+  useEffect(() => {
+    if (initialLoadRef.current) return;
+    initialLoadRef.current = true;
+    loadDepartments();
+
+    const deptFilter = searchParams.get('filter');
+    if (deptFilter && deptFilter.startsWith('dept-')) {
+      const deptName = decodeURIComponent(deptFilter.replace('dept-', ''));
+      setFilters(f => ({ ...f, department: deptName }));
+    } else {
+      loadPage(1);
+      setPage(1);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (filters.department) {
+      loadPage(1);
+      setPage(1);
+    }
+  }, [filters.department]);
+
+  const loadPage = useCallback(async (pageNum = 1) => {
+    console.log('loadPage called, filters:', filters);
     try {
       setLoading(true);
       const from = (pageNum - 1) * PAGE_SIZE;
@@ -167,6 +194,7 @@ export default function EmployeeList() {
         .order(sortField, { ascending: sortDir === 'asc' });
 
       if (filters.department) {
+        console.log('Applying department filter:', filters.department);
         query = query.eq('department_name', filters.department);
       }
       if (filters.status) {
@@ -176,11 +204,16 @@ export default function EmployeeList() {
         query = query.eq('location', filters.location);
       }
       if (searchTerm) {
-        const term = `%${searchTerm}%`;
-        query = query.or(`surname.ilike.${term},first_name.ilike.${term},file_number.ilike.${term},department_name.ilike.${term}`);
+        const term = searchTerm.toLowerCase();
+        const termWildcard = `%${term}%`;
+        query = query.or(`surname.ilike.${termWildcard},first_name.ilike.${termWildcard},file_number.ilike.${termWildcard},rsa_pin.ilike.${termWildcard},ippis_number.ilike.${termWildcard},phone.ilike.${termWildcard},department_name.ilike.${termWildcard}`);
       }
 
-      const { data, count } = await query.range(from, to);
+      const { data, count, error } = await query.range(from, to);
+      
+      if (error) {
+        console.error('Search error:', error);
+      }
       
       if (data) {
         setEmployees(data || []);
@@ -192,26 +225,35 @@ export default function EmployeeList() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters, searchTerm, sortField, sortDir]);
 
   const loadDepartments = async () => {
     const { data } = await supabase.from('departments').select('name');
     setDepartments(data?.map(d => d.name) || []);
   };
 
-  useEffect(() => {
-    loadDepartments();
-    loadPage(page);
-  }, []);
+  const handlePageChange = (newPage) => {
+    setPage(newPage);
+    loadPage(newPage);
+  };
 
   useEffect(() => {
-    loadPage(1);
-    setPage(1);
-  }, [filters, sortField, sortDir]);
+    if (searchTerm) {
+      const timer = setTimeout(() => {
+        loadPage(1);
+        setPage(1);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [searchTerm, loadPage]);
 
   const handleSearch = async () => {
-    await loadPage(1);
     setPage(1);
+    await loadPage(1);
+  };
+
+  const handleSearchChange = (e) => {
+    setSearchTerm(e.target.value);
   };
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
@@ -324,11 +366,10 @@ export default function EmployeeList() {
           <div className="flex flex-col md:flex-row gap-3">
             <input
               type="text"
-              placeholder="Search by name, file number, department..."
+              placeholder="Search name, file no, phone, RSA PIN, IPPIS, department..."
               className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              onChange={handleSearchChange}
             />
             <button
               onClick={handleSearch}
@@ -548,16 +589,16 @@ export default function EmployeeList() {
               Page {page} of {totalPages} ({totalCount} records)
             </p>
             <div className="flex gap-2">
-              <button onClick={() => setPage(1)} disabled={page === 1} className="px-3 py-1 border rounded text-sm disabled:opacity-40 hover:bg-gray-100">
+              <button onClick={() => handlePageChange(1)} disabled={page === 1} className="px-3 py-1 border rounded text-sm disabled:opacity-40 hover:bg-gray-100">
                 First
               </button>
-              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1 border rounded text-sm disabled:opacity-40 hover:bg-gray-100">
+              <button onClick={() => handlePageChange(page - 1)} disabled={page === 1} className="px-3 py-1 border rounded text-sm disabled:opacity-40 hover:bg-gray-100">
                 Previous
               </button>
-              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="px-3 py-1 border rounded text-sm disabled:opacity-40 hover:bg-gray-100">
+              <button onClick={() => handlePageChange(page + 1)} disabled={page === totalPages} className="px-3 py-1 border rounded text-sm disabled:opacity-40 hover:bg-gray-100">
                 Next
               </button>
-              <button onClick={() => setPage(totalPages)} disabled={page === totalPages} className="px-3 py-1 border rounded text-sm disabled:opacity-40 hover:bg-gray-100">
+              <button onClick={() => handlePageChange(totalPages)} disabled={page === totalPages} className="px-3 py-1 border rounded text-sm disabled:opacity-40 hover:bg-gray-100">
                 Last
               </button>
             </div>

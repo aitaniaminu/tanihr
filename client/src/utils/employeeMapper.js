@@ -31,6 +31,9 @@ export const SUPABASE_TO_DISPLAY_FIELDS = {
   sex: 'sex',
   phone: 'phone',
   email: 'email',
+  manager_id: 'managerId',
+  retirement_date: 'retirementDate',
+  age_on_entry: 'ageOnEntry',
 };
 
 export function mapEmployeeFromSupabase(data) {

@@ -1,8 +1,8 @@
-import { useEffect, useState, useMemo } from 'react';
-import supabase from '../lib/supabase';
+import { useEffect, useState } from 'react';
+import { db } from '../db/indexedDB';
 import { 
-  BarChart3, PieChart, TrendingUp, Users, Building2, 
-  UserPlus, UserMinus, Calendar, Download
+  BarChart3, TrendingUp, Users, Building2, 
+  UserPlus, Download
 } from 'lucide-react';
 
 const StatCard = ({ title, value, change, icon: Icon, color }) => (
@@ -134,18 +134,17 @@ export default function Reports() {
     try {
       setLoading(true);
       
-      const empRes = await supabase.from('employees').select('*');
-      const employees = empRes.data || [];
+      const employees = await db.employees.toArray();
       
       const currentYear = new Date().getFullYear();
       const newThisYear = employees.filter(e => {
-        const firstApp = e.date_of_first_appointment;
+        const firstApp = e.dateOfFirstAppointment;
         return firstApp && new Date(firstApp).getFullYear() === currentYear;
       }).length;
 
       const byDept = {};
       employees.forEach(e => {
-        const dept = e.department_name || 'Unassigned';
+        const dept = e.department || 'Unassigned';
         byDept[dept] = (byDept[dept] || 0) + 1;
       });
 
@@ -163,7 +162,7 @@ export default function Reports() {
 
       const byRank = {};
       employees.forEach(e => {
-        const rank = e.rank_name || 'Unassigned';
+        const rank = e.rank || 'Unassigned';
         byRank[rank] = (byRank[rank] || 0) + 1;
       });
 

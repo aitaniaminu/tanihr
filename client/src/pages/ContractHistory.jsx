@@ -425,10 +425,10 @@ export default function ContractHistory() {
     return matchesSearch && matchesType;
   });
 
-  const stats = {
+const stats = {
     total: contracts.length,
     promotions: contracts.filter(c => c.contract_type === 'Promotion').length,
-    salary Increases: contracts.filter(c => c.contract_type === 'Salary Increase').length,
+    salaryIncreases: contracts.filter(c => c.contract_type === 'Salary Increase').length,
     active: contracts.filter(c => c.status === 'Active').length,
   };
 
@@ -451,7 +451,7 @@ export default function ContractHistory() {
       <div className="grid grid-cols-4 gap-4">
         <StatsCard title="Total Changes" value={stats.total} icon={FileText} color="bg-gray-100 text-gray-700" />
         <StatsCard title="Promotions" value={stats.promotions} icon={TrendingUp} color="bg-purple-100 text-purple-700" />
-        <StatsCard title="Salary Increases" value={stats.salary Increases} icon={DollarSign} color="bg-green-100 text-green-700" />
+        <StatsCard title="Salary Increases" value={stats.salaryIncreases} icon={DollarSign} color="bg-green-100 text-green-700" />
         <StatsCard title="Active" value={stats.active} icon={Clock} color="bg-blue-100 text-blue-700" />
       </div>
 

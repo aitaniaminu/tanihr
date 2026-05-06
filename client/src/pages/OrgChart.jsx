@@ -23,6 +23,15 @@ export default function OrgChart() {
         supabase.from('employees').select('*'),
         supabase.from('departments').select('id, name, parent_id')
       ]);
+      console.log('Loaded employees:', empRes.data?.length);
+      console.log('Loaded departments:', deptRes.data?.length);
+      console.log('Department names:', deptRes.data?.map(d => d.name));
+      
+      const pharmacyEmps = empRes.data?.filter(e => 
+        e.department_name?.toLowerCase().includes('pharmacy')
+      ) || [];
+      console.log('Employees with pharmacy:', pharmacyEmps.length);
+      
       setEmployees(empRes.data || []);
       setDepartments(deptRes.data || []);
       setExpandedNodes(new Set(['root']));
@@ -67,9 +76,13 @@ const getEmployeeByManager = useMemo(() => {
     return employees.filter(e => !e.manager_id || !allManagerIds.has(e.id));
   }, [employees]);
 
-  const getDepartmentHierarchy = useMemo(() => {
+  const getTopLevelEmployees = rootEmployees;
+
+const getDepartmentHierarchy = useMemo(() => {
+    if (departments.length === 0) return [];
+    
     const deptMap = {};
-departments.forEach(d => {
+    departments.forEach(d => {
       deptMap[d.id] = { ...d, children: [], employees: [] };
     });
 
@@ -81,13 +94,25 @@ departments.forEach(d => {
 
     const rootDepts = departments.filter(d => !d.parent_id).map(d => deptMap[d.id]);
     
+    const normalizedDeptNames = {};
+    departments.forEach(d => {
+      const key = d.name?.toLowerCase().trim();
+      if (key) normalizedDeptNames[key] = d.id;
+    });
+    console.log('Normalized dept names map:', normalizedDeptNames);
+    
+    let matchedCount = 0;
     employees.forEach(emp => {
       const empDeptName = emp.department_name?.toLowerCase().trim();
-      const dept = departments.find(d => d.name?.toLowerCase().trim() === empDeptName);
-      if (dept && deptMap[dept.id]) {
-        deptMap[dept.id].employees.push(emp);
+      const matchedDeptId = normalizedDeptNames[empDeptName];
+      if (matchedDeptId && deptMap[matchedDeptId]) {
+        deptMap[matchedDeptId].employees.push(emp);
+        matchedCount++;
+      } else if (emp.department_name) {
+        console.log('Unmatched dept:', emp.department_name);
       }
     });
+    console.log('Matched employees:', matchedCount, 'of', employees.length);
 
     const totalWithDept = departments.reduce((sum, d) => sum + (deptMap[d.id]?.employees.length || 0), 0);
     const unassignedCount = employees.length - totalWithDept;
@@ -109,7 +134,10 @@ departments.forEach(d => {
       <div key={emp.id} className="flex flex-col items-center">
         <div 
           className={`bg-white rounded-lg shadow-md border-2 border-green-500 cursor-pointer hover:shadow-lg transition ${isCompact ? 'p-2 min-w-32' : 'p-4 min-w-48'}`}
-          onClick={() => navigate(`/employees/${emp.id}`)}
+          onClick={(e) => {
+            e.stopPropagation();
+            navigate(`/employees/${emp.id}`);
+          }}
         >
           <div className="flex items-center gap-2">
             {hasChildren && (
@@ -285,7 +313,10 @@ departments.forEach(d => {
                 </button>
               </div>
             ) : (
-              <div className="space-y-2">
+              <div 
+                className="space-y-2"
+                style={{ transform: `scale(${zoom})`, transformOrigin: 'top left' }}
+              >
                 {getDepartmentHierarchy.map(dept => renderDepartmentTree(dept, true))}
               </div>
             )}

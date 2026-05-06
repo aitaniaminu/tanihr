@@ -58,7 +58,7 @@ describe('EmployeeForm', () => {
   });
 
   it('should show "Add New Employee" heading when no employeeId is provided', async () => {
-    renderWithRouter onBack={mockOnBack} />);
+    renderWithRouter(<EmployeeForm onBack={mockOnBack} />);
     expect(await screen.findByText('Add New Employee')).toBeInTheDocument();
   });
 
@@ -97,7 +97,7 @@ describe('EmployeeForm', () => {
 
     db.employees.get.mockResolvedValue(mockEmployee);
 
-    renderWithRouter employeeId={1} onBack={mockOnBack} />);
+    renderWithRouter(<EmployeeForm employeeId={1} onBack={mockOnBack} />);
 
     expect(await screen.findByText('Edit Employee')).toBeInTheDocument();
     expect(screen.getByDisplayValue('Adebayo')).toBeInTheDocument();

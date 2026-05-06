@@ -18,8 +18,14 @@ export default function Breadcrumb() {
     const path = `/${pathnames.slice(0, index + 1).join('/')}`;
     const isEdit = segment === 'edit' && pathnames[index + 1];
     const isEmployeeId = /^\d+$/.test(segment);
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(segment);
 
     if (isEdit) return; // Skip 'edit' segment, handled below
+    if (isUUID) {
+      const editIndex = pathnames.indexOf('edit', index - 1);
+      segments.push({ label: editIndex ? 'Edit Employee' : 'Employee', path });
+      return;
+    }
     if (isEmployeeId) {
       const editIndex = pathnames.indexOf('edit', index - 1);
       if (editIndex >= 0) {

@@ -2,15 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import supabase from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
-import { ArrowLeft, Save, Camera, X, FileText } from 'lucide-react';
+import { ArrowLeft, Save, Camera, X, FileText, Trash2, Eye, Upload, Award, Plus, Check } from 'lucide-react';
 import {
   formatDDMMYYYY,
   parseDDMMYYYY,
   toISODate,
   calculateAge,
+  calculateRetirementDate,
   isAtLeast18Years,
 } from '../../utils/dateHelpers';
 import { mapEmployeeFromSupabase } from '../../utils/employeeMapper';
+import { createUserForEmployee } from '../../utils/employeeRoles';
 import {
   nigerianStates,
   getLGAsForState,
@@ -62,9 +64,12 @@ const EmployeeForm = ({ employee, employeeId, onBack }) => {
     natureOfJob: '',
     salaryStructure: '',
     managerId: '',
+    retirementDate: '',
+    ageOnEntry: '',
   });
 
   const [errors, setErrors] = useState({});
+  const [saveSuccess, setSaveSuccess] = useState(false);
   const [lgas, setLgas] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [ranks, setRanks] = useState([]);
@@ -77,6 +82,14 @@ const EmployeeForm = ({ employee, employeeId, onBack }) => {
     yearsOfService: '',
   });
   const [avatarPreview, setAvatarPreview] = useState('');
+  const [documents, setDocuments] = useState([]);
+  const [uploadingDoc, setUploadingDoc] = useState(false);
+  const [skills, setSkills] = useState([]);
+  const [certifications, setCertifications] = useState([]);
+  const [addingSkill, setAddingSkill] = useState(false);
+  const [addingCert, setAddingCert] = useState(false);
+  const [skillName, setSkillName] = useState('');
+  const [certName, setCertName] = useState('');
 
   const MAX_AVATAR_SIZE = 500 * 1024; // 500KB
 
@@ -84,9 +97,13 @@ const EmployeeForm = ({ employee, employeeId, onBack }) => {
     loadReferenceData();
     if (employee?.id) {
       loadEmployeeData();
+      loadDocuments(employee.id);
+      loadSkillsCerts(employee.id);
       setLoading(false);
     } else if (employeeId) {
       fetchEmployeeById(employeeId);
+      loadDocuments(employeeId);
+      loadSkillsCerts(employeeId);
     }
   }, []);
 
@@ -122,6 +139,123 @@ const EmployeeForm = ({ employee, employeeId, onBack }) => {
       setSites(defaultSites);
     } catch (error) {
       console.error('Error loading reference data:', error);
+    }
+  };
+
+  const loadDocuments = async (empId) => {
+    if (!empId) return;
+    try {
+      const { data } = await supabase
+        .from('employee_documents')
+        .select('*')
+        .eq('employee_id', empId)
+        .order('created_at', { ascending: false });
+      setDocuments(data || []);
+    } catch (err) {
+      console.error('Error loading documents:', err);
+    }
+  };
+
+  const loadSkillsCerts = async (empId) => {
+    if (!empId) return;
+    try {
+      const [skillsRes, certsRes] = await Promise.all([
+        supabase.from('employee_skills').select('*').eq('employee_id', empId).order('created_at', { ascending: false }),
+        supabase.from('employee_certifications').select('*').eq('employee_id', empId).order('created_at', { ascending: false }),
+      ]);
+      setSkills(skillsRes.data || []);
+      setCertifications(certsRes.data || []);
+    } catch (err) {
+      console.error('Error loading skills/certs:', err);
+    }
+  };
+
+  const handleAddSkill = async () => {
+    const empId = employeeId || employee?.id;
+    if (!empId || !skillName.trim()) return;
+    await supabase.from('employee_skills').insert({ employee_id: empId, name: skillName.trim() });
+    setSkillName('');
+    setAddingSkill(false);
+    await loadSkillsCerts(empId);
+  };
+
+  const handleDeleteSkill = async (skillId) => {
+    const empId = employeeId || employee?.id;
+    await supabase.from('employee_skills').delete().eq('id', skillId);
+    await loadSkillsCerts(empId);
+  };
+
+  const handleAddCert = async () => {
+    const empId = employeeId || employee?.id;
+    if (!empId || !certName.trim()) return;
+    await supabase.from('employee_certifications').insert({ employee_id: empId, name: certName.trim() });
+    setCertName('');
+    setAddingCert(false);
+    await loadSkillsCerts(empId);
+  };
+
+  const handleDeleteCert = async (certId) => {
+    const empId = employeeId || employee?.id;
+    await supabase.from('employee_certifications').delete().eq('id', certId);
+    await loadSkillsCerts(empId);
+  };
+
+  const handleDocUpload = async (e) => {
+    const file = e.target.files?.[0];
+    const empId = employeeId || employee?.id;
+    if (!file || !empId) return;
+    
+    setUploadingDoc(true);
+    try {
+      let fileUrl = null;
+      const fileName = `${empId}/${Date.now()}_${file.name}`;
+      
+      try {
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('documents')
+          .upload(fileName, file);
+        
+        if (!uploadError && uploadData) {
+          const { data: { publicUrl } } = supabase.storage
+            .from('documents')
+            .getPublicUrl(fileName);
+          fileUrl = publicUrl;
+        } else {
+          throw new Error('Storage error');
+        }
+      } catch (storageErr) {
+        const base64 = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        fileUrl = base64;
+      }
+      
+      await supabase.from('employee_documents').insert({
+        employee_id: empId,
+        document_type: 'other',
+        file_name: file.name,
+        file_url: fileUrl,
+      });
+      
+      await loadDocuments(empId);
+    } catch (err) {
+      console.error('Error uploading document:', err);
+    } finally {
+      setUploadingDoc(false);
+    }
+  };
+
+  const handleDocDelete = async (docId) => {
+    if (!window.confirm('Delete this document?')) return;
+    const empId = employeeId || employee?.id;
+    try {
+      await supabase.from('employee_documents').delete().eq('id', docId);
+      await loadDocuments(empId);
+    } catch (err) {
+      console.error('Error deleting document:', err);
     }
   };
 
@@ -176,6 +310,8 @@ const EmployeeForm = ({ employee, employeeId, onBack }) => {
         natureOfJob: mapped.natureOfJob || '',
         salaryStructure: mapped.salaryStructure || '',
         managerId: emp.manager_id || '',
+        retirementDate: mapped.retirementDate || '',
+        ageOnEntry: mapped.ageOnEntry?.toString() || '',
       });
       setAvatarPreview(mapped.avatar || '');
     } catch (error) {
@@ -268,6 +404,15 @@ const EmployeeForm = ({ employee, employeeId, onBack }) => {
       const monthDiff = today.getMonth() - startD.getMonth();
       if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < startD.getDate())) years--;
       setComputedFields((prev) => ({ ...prev, yearsOfService: Math.max(0, years)?.toString() || '' }));
+    }
+
+    if (dob && firstAppt) {
+      const retirementD = calculateRetirementDate(dob, firstAppt);
+      setComputedFields((prev) => ({ 
+        ...prev, 
+        retirementDate: retirementD ? formatDDMMYYYY(retirementD) : '',
+        ageOnEntry: firstAppt.getFullYear() - dob.getFullYear(),
+      }));
     }
   };
 
@@ -368,6 +513,9 @@ const handleSubmit = async (e) => {
       nature_of_job: formData.natureOfJob || null,
       salary_structure: formData.salaryStructure || null,
       avatar_url: avatarPreview || null,
+      manager_id: formData.managerId || null,
+      retirement_date: formData.retirementDate ? toISODate(formData.retirementDate) : null,
+      age_on_entry: formData.ageOnEntry ? parseInt(formData.ageOnEntry) : null,
       updated_at: new Date().toISOString(),
     };
 
@@ -397,15 +545,31 @@ if (isEdit) {
           .eq('id', updateId);
         
         if (error) throw error;
+        
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 3000);
       } else {
-        const { error } = await supabase
+        const { data: newEmployee, error } = await supabase
           .from('employees')
-          .insert(employeeData);
+          .insert(employeeData)
+          .select()
+          .single();
         
         if (error) throw error;
+        
+        if (newEmployee) {
+          const mappedEmp = mapEmployeeFromSupabase(newEmployee);
+          const userResult = await createUserForEmployee(mappedEmp);
+          
+          if (userResult.success) {
+            alert(`Employee created successfully!\n\nUser account created:\nUsername: ${userResult.username}\nTemporary Password: ${userResult.tempPassword}\n\nPlease share these credentials with the employee.`);
+          } else if (userResult.error !== 'User already exists') {
+            console.warn('Could not create user account:', userResult.error);
+          }
+        }
+        
+        onBack();
       }
-
-      onBack();
     } catch (error) {
       console.error('Error saving employee:', error);
       alert(`Error saving employee: ${error.message}`);
@@ -450,6 +614,12 @@ if (isEdit) {
               </button>
             )}
           </div>
+
+          {saveSuccess && (
+            <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg mb-4">
+              Employee updated successfully.
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Avatar upload */}
@@ -951,10 +1121,189 @@ if (isEdit) {
                     className="w-full px-3 py-2 border rounded-lg bg-gray-100"
                   />
                 </div>
+                <div>
+                  <label className={labelClass}>Retirement Date</label>
+                  <input
+                    type="text"
+                    name="retirementDate"
+                    value={formData.retirementDate}
+                    onChange={handleChange}
+                    placeholder="DD-MM-YYYY"
+                    className={inputClass('retirementDate')}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Age on Entry</label>
+                  <input
+                    type="number"
+                    name="ageOnEntry"
+                    value={formData.ageOnEntry}
+                    onChange={handleChange}
+                    min="18"
+                    max="70"
+                    className={inputClass('ageOnEntry')}
+                  />
+                </div>
               </div>
             </section>
 
-            <div className="flex justify-end gap-4">
+            {isEdit && (
+              <div className="mt-6 pt-6 border-t border-gray-200">
+                <section className="bg-white rounded-lg shadow p-6">
+                  <h2 className="text-xl font-semibold mb-4 text-primary flex items-center gap-2">
+                    <FileText size={20} /> Documents
+                  </h2>
+
+                  <div className="mb-4">
+                    <label className="flex items-center gap-2 px-4 py-2 border-2 border-dashed rounded-lg cursor-pointer hover:border-green-500 hover:bg-green-50 transition w-fit">
+                      <input
+                        type="file"
+                        onChange={handleDocUpload}
+                        className="hidden"
+                        accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                        disabled={uploadingDoc}
+                      />
+                      <Upload size={18} />
+                      <span className="text-sm">{uploadingDoc ? 'Uploading...' : 'Upload Document'}</span>
+                    </label>
+                  </div>
+
+                  {documents.length === 0 ? (
+                    <p className="text-gray-500 text-sm">No documents uploaded yet.</p>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {documents.map(doc => (
+                        <div key={doc.id} className="flex items-center p-3 border rounded-lg bg-gray-50">
+                          <FileText className="w-8 h-8 text-gray-400 mr-3" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-800 truncate">{doc.file_name}</p>
+                            <p className="text-xs text-gray-500">
+                              {new Date(doc.created_at).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <div className="flex gap-2 ml-2">
+                            {doc.file_url && (
+                              <button
+                                onClick={() => window.open(doc.file_url, '_blank')}
+                                className="p-1 text-gray-400 hover:text-green-600"
+                                title="View"
+                              >
+                                <Eye size={16} />
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleDocDelete(doc.id)}
+                              className="p-1 text-gray-400 hover:text-red-600"
+                              title="Delete"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </section>
+
+                <section className="bg-white rounded-lg shadow p-6 mt-6">
+                  <h2 className="text-xl font-semibold mb-4 text-primary flex items-center gap-2">
+                    <Award size={20} /> Skills
+                  </h2>
+
+                  {!addingSkill ? (
+                    <button
+                      onClick={() => setAddingSkill(true)}
+                      className="flex items-center gap-2 px-4 py-2 border-2 border-dashed rounded-lg hover:border-green-500 hover:bg-green-50 transition"
+                    >
+                      <Plus size={18} />
+                      <span className="text-sm">Add Skill</span>
+                    </button>
+                  ) : (
+                    <div className="flex gap-2 mb-4">
+                      <input
+                        type="text"
+                        value={skillName}
+                        onChange={(e) => setSkillName(e.target.value)}
+                        placeholder="Skill name"
+                        className="flex-1 px-3 py-2 border rounded-lg"
+                        onKeyDown={(e) => e.key === 'Enter' && handleAddSkill()}
+                      />
+                      <button onClick={handleAddSkill} className="p-2 bg-green-600 text-white rounded-lg">
+                        <Check size={18} />
+                      </button>
+                      <button onClick={() => setAddingSkill(false)} className="p-2 border rounded-lg">
+                        <X size={18} />
+                      </button>
+                    </div>
+                  )}
+
+                  {skills.length === 0 ? (
+                    <p className="text-gray-500 text-sm mt-2">No skills added.</p>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
+                      {skills.map(skill => (
+                        <div key={skill.id} className="flex items-center justify-between p-3 border rounded-lg bg-gray-50">
+                          <span className="font-medium text-gray-800">{skill.name}</span>
+                          <button onClick={() => handleDeleteSkill(skill.id)} className="p-1 text-gray-400 hover:text-red-600">
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </section>
+
+                <section className="bg-white rounded-lg shadow p-6 mt-6">
+                  <h2 className="text-xl font-semibold mb-4 text-primary flex items-center gap-2">
+                    <Award size={20} /> Certifications
+                  </h2>
+
+                  {!addingCert ? (
+                    <button
+                      onClick={() => setAddingCert(true)}
+                      className="flex items-center gap-2 px-4 py-2 border-2 border-dashed rounded-lg hover:border-green-500 hover:bg-green-50 transition"
+                    >
+                      <Plus size={18} />
+                      <span className="text-sm">Add Certification</span>
+                    </button>
+                  ) : (
+                    <div className="flex gap-2 mb-4">
+                      <input
+                        type="text"
+                        value={certName}
+                        onChange={(e) => setCertName(e.target.value)}
+                        placeholder="Certification name"
+                        className="flex-1 px-3 py-2 border rounded-lg"
+                        onKeyDown={(e) => e.key === 'Enter' && handleAddCert()}
+                      />
+                      <button onClick={handleAddCert} className="p-2 bg-green-600 text-white rounded-lg">
+                        <Check size={18} />
+                      </button>
+                      <button onClick={() => setAddingCert(false)} className="p-2 border rounded-lg">
+                        <X size={18} />
+                      </button>
+                    </div>
+                  )}
+
+                  {certifications.length === 0 ? (
+                    <p className="text-gray-500 text-sm mt-2">No certifications added.</p>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
+                      {certifications.map(cert => (
+                        <div key={cert.id} className="flex items-center justify-between p-3 border rounded-lg bg-gray-50">
+                          <span className="font-medium text-gray-800">{cert.name}</span>
+                          <button onClick={() => handleDeleteCert(cert.id)} className="p-1 text-gray-400 hover:text-red-600">
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </section>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-4 mt-6 pt-6 border-t border-gray-200">
               <button type="button" onClick={onBack} className="px-6 py-2 border rounded-lg hover:bg-gray-50">
                 Cancel
               </button>
@@ -966,17 +1315,6 @@ if (isEdit) {
                 {isEdit ? 'Update Employee' : 'Create Employee'}
               </button>
             </div>
-            {isEdit && (
-              <div className="mt-6 pt-6 border-t border-gray-200">
-                <button
-                  type="button"
-                  onClick={() => navigate('/documents')}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition flex items-center justify-center gap-2"
-                >
-                  <FileText size={20} /> Manage Employee Documents
-                </button>
-              </div>
-            )}
           </form>
         </>
       )}

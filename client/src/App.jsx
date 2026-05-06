@@ -1,6 +1,7 @@
 import { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
+import { SettingsProvider } from './context/SettingsContext';
 import Login from './pages/Login';
 import Layout from './components/Layout';
 
@@ -17,6 +18,11 @@ const Reports = lazy(() => import('./pages/Reports'));
 const Skills = lazy(() => import('./pages/Skills'));
 const LeaveManagement = lazy(() => import('./pages/LeaveManagement'));
 const ContractHistory = lazy(() => import('./pages/ContractHistory'));
+const Settings = lazy(() => import('./pages/Settings'));
+const UserManagement = lazy(() => import('./pages/UserManagement'));
+const MyProfile = lazy(() => import('./pages/MyProfile'));
+const ChangePassword = lazy(() => import('./pages/ChangePassword'));
+const LoginHistory = lazy(() => import('./pages/LoginHistory'));
 
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-64">
@@ -24,11 +30,13 @@ const PageLoader = () => (
   </div>
 );
 
-const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated, loading } = useAuth();
+const ProtectedRoute = ({ children, requiredRole }) => {
+  const { isAuthenticated, loading, isSuperAdmin, user } = useAuth();
   if (loading)
     return <div className="min-h-screen flex items-center justify-center text-green-700">Loading TaniHR...</div>;
-  return isAuthenticated ? children : <Navigate to="/login" />;
+  if (!isAuthenticated) return <Navigate to="/login" />;
+  if (requiredRole === 'admin' && !isSuperAdmin) return <Navigate to="/dashboard" />;
+  return children;
 };
 
 const EditEmployeeWrapper = () => {
@@ -52,7 +60,8 @@ const LazyRoute = ({ children }) => <Suspense fallback={<PageLoader />}>{childre
 export default function App() {
   const { isAuthenticated } = useAuth();
   return (
-    <BrowserRouter>
+    <SettingsProvider>
+      <BrowserRouter>
       <Routes>
         <Route path="/login" element={isAuthenticated ? <Navigate to="/dashboard" /> : <Login />} />
         <Route
@@ -223,8 +232,69 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <LazyRoute>
+                <Layout>
+                  <Settings />
+                </Layout>
+              </LazyRoute>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/users"
+          element={
+            <ProtectedRoute requiredRole="admin">
+              <LazyRoute>
+                <Layout>
+                  <UserManagement />
+                </Layout>
+              </LazyRoute>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/login-history"
+          element={
+            <ProtectedRoute requiredRole="admin">
+              <LazyRoute>
+                <Layout>
+                  <LoginHistory />
+                </Layout>
+              </LazyRoute>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/my-profile"
+          element={
+            <ProtectedRoute>
+              <LazyRoute>
+                <Layout>
+                  <MyProfile />
+                </Layout>
+              </LazyRoute>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/change-password"
+          element={
+            <ProtectedRoute>
+              <LazyRoute>
+                <Layout>
+                  <ChangePassword />
+                </Layout>
+              </LazyRoute>
+            </ProtectedRoute>
+          }
+        />
         <Route path="/" element={<Navigate to={isAuthenticated ? '/dashboard' : '/login'} />} />
       </Routes>
     </BrowserRouter>
+    </SettingsProvider>
   );
 }
