@@ -7,6 +7,39 @@
 
 ## Session History
 
+### Session 4 (2026-05-06) - Security Audit, Performance Optimization, Summary Fix
+
+#### Work Completed
+1. **summary.md** - Fixed and committed with build details
+
+2. **Security Fixes**:
+   - Moved Supabase credentials to `.env` file (VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY)
+   - Moved admin credentials to `.env` (VITE_ADMIN_USERNAME, VITE_ADMIN_PASSWORD)
+   - Created `.gitignore` to exclude `.env` files from version control
+   - Updated `src/lib/supabase.js` to use `import.meta.env`
+   - Updated `src/context/AuthContext.jsx` to use `import.meta.env` for admin credentials
+   - Added security note about plain text password storage in AuthContext.jsx
+
+3. **Performance Optimization**:
+   - Added manual chunks to `vite.config.js`:
+     - `vendor`: react, react-router-dom, dexie
+     - `ui`: lucide-react
+     - `supabase`: @supabase/supabase-js
+   - Build result: Main chunk reduced from 527KB → 38KB
+   - Vendor chunk: 277KB, Supabase chunk: 203KB
+
+4. **Build Verification**:
+   - All changes pass build (1834 modules)
+   - No ESLint errors
+   - Code splitting working correctly
+
+#### Files Modified
+- `src/lib/supabase.js` - Use environment variables
+- `src/context/AuthContext.jsx` - Use env vars for admin credentials
+- `vite.config.js` - Add manual chunks for code splitting
+- `.gitignore` - New file to exclude .env files
+- `.env` - New file with credentials (not committed)
+
 ### Session 3 (2026-05-06) - Bidirectional Real-Time Database Sync
 
 #### Work Completed

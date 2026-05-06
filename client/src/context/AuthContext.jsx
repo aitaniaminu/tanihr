@@ -137,6 +137,9 @@ function mapRoleToLegacy(role) {
   return roleMap[role] || 'Employee';
 }
 
+// SECURITY NOTE: Passwords are stored in plain text in IndexedDB for demo purposes.
+// In production, use Supabase Auth (signUp/signIn) which handles password hashing securely.
+// To migrate: Replace login() with supabase.auth.signInWithPassword() and remove local password storage.
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -224,14 +227,14 @@ export function AuthProvider({ children }) {
       return { success: false, error: `Account locked. Try again in ${remaining} minutes.` };
     }
 
-    if (identifier === 'aminua@tani.com.ng' && password === 'TaniHR@2026!') {
+    if (identifier === import.meta.env.VITE_ADMIN_USERNAME && password === import.meta.env.VITE_ADMIN_PASSWORD) {
       const userData = {
-        username: 'aminua@tani.com.ng',
+        username: import.meta.env.VITE_ADMIN_USERNAME,
         role: 'Super Admin',
         roles: ['super_admin'],
         primaryRole: 'super_admin',
         id: 1,
-        email: 'aminua@tani.com.ng',
+        email: import.meta.env.VITE_ADMIN_USERNAME,
       };
       sessionStorage.setItem('tanihr_user', JSON.stringify(userData));
       setUser(userData);
@@ -304,7 +307,7 @@ export function AuthProvider({ children }) {
       return { success: false, error: 'Not authenticated' };
     }
 
-    if (user.username === 'aminua@tani.com.ng' && currentPassword !== 'TaniHR@2026!') {
+    if (user.username === import.meta.env.VITE_ADMIN_USERNAME && currentPassword !== import.meta.env.VITE_ADMIN_PASSWORD) {
       return { success: false, error: 'Current password is incorrect' };
     }
 
@@ -340,7 +343,7 @@ export function AuthProvider({ children }) {
       return { success: false, error: 'User not found' };
     }
 
-    if (identifier === 'aminua@tani.com.ng') {
+    if (identifier === import.meta.env.VITE_ADMIN_USERNAME) {
       return { success: false, error: 'Cannot reset admin password' };
     }
 
