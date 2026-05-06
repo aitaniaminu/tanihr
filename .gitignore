@@ -34,3 +34,4 @@ package-lock.json
 
 # Ignore all CSV files
 *.csv
+*.xlsx
