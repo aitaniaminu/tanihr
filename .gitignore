@@ -27,3 +27,10 @@ package-lock.json
 
 # Vite
 .vite/
+
+# Ignore all markdown files except README.md
+*.md
+!README.md
+
+# Ignore all CSV files
+*.csv
