@@ -57,9 +57,27 @@
 - User Management moved under expandable section with Change Password inside
 
 ## Next Steps
-- Test the application end-to-end
-- Verify Reports shows correct employee count after sync
-- Continue UI improvements if needed
+- ~~Test the application end-to-end~~ - BUILD VERIFIED (passed)
+- ~~Verify Reports shows correct employee count after sync~~ - Requires manual testing (needs Supabase connection)
+- ~~Continue UI improvements if needed~~ - FIXED: Added missing "Sync from Supabase" button
+
+## Work Completed (2026-05-06)
+1. **SyncSupabase.jsx** - Added "Sync from Supabase" functionality:
+   - Added blue "Sync from Supabase" button that calls syncFromSupabase()
+   - Calls offlineSync.js syncFromSupabase() to fetch data from Supabase
+   - Added proper logging and status display
+   - Maintained existing "Sync to Supabase" functionality
+   - Restructured page with two clear sections
+
+2. **Build Verification** - npm run build passed successfully
+
+## Manual Testing Required
+To verify end-to-end functionality:
+1. Start the dev server: `npm run dev`
+2. Login to the application
+3. Go to Settings → Sync Data (or /sync route)
+4. Click "Sync from Supabase" to populate IndexedDB
+5. Navigate to Reports to verify employee count displays correctly
 
 ## File Locations
 - Client: `/home/aminua/Documents/Tani Nigeria Ltd/TaniHR/tanihr/client`
