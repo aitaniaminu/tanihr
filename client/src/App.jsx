@@ -13,7 +13,7 @@ const ImportEmployees = lazy(() => import('./pages/Employees/ImportEmployees'));
 const DepartmentList = lazy(() => import('./pages/Departments/DepartmentList'));
 const OrgChart = lazy(() => import('./pages/OrgChart'));
 const DocumentVault = lazy(() => import('./pages/DocumentVault'));
-const SyncSupabase = lazy(() => import('./pages/SyncSupabase'));
+const SyncDatabase = lazy(() => import('./pages/SyncDatabase'));
 const Reports = lazy(() => import('./pages/Reports'));
 const Skills = lazy(() => import('./pages/Skills'));
 const LeaveManagement = lazy(() => import('./pages/LeaveManagement'));
@@ -178,7 +178,7 @@ export default function App() {
             <ProtectedRoute>
               <LazyRoute>
                 <Layout>
-                  <SyncSupabase />
+                  <SyncDatabase />
                 </Layout>
               </LazyRoute>
             </ProtectedRoute>

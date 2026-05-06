@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { db } from '../db/indexedDB';
-import { syncFromSupabase, getOnlineStatus } from '../lib/offlineSync';
+import { triggerFullSync, getOnlineStatus } from '../lib/syncEngine';
 
 export function useEmployees() {
   const [employees, setEmployees] = useState([]);
@@ -32,7 +32,7 @@ export function useEmployees() {
   
   async function refresh() {
     setLoading(true);
-    await syncFromSupabase((msg) => console.log(msg));
+    await triggerFullSync();
     await loadEmployees();
     setLoading(false);
   }
@@ -100,8 +100,4 @@ export function useStates() {
   }, []);
   
   return states;
-}
-
-export async function initializeOfflineData(addLog) {
-  await syncFromSupabase(addLog);
 }

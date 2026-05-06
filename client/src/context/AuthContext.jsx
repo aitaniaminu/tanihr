@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import supabase from '../lib/supabase';
-import { initializeOfflineData } from '../hooks/useOfflineData';
+import { initializeSync } from '../lib/syncEngine';
 import { db } from '../db/indexedDB';
 
 const AuthContext = createContext(null);
@@ -236,7 +236,7 @@ export function AuthProvider({ children }) {
       sessionStorage.setItem('tanihr_user', JSON.stringify(userData));
       setUser(userData);
       setPermissions(computePermissions(['super_admin']));
-      initializeOfflineData();
+      initializeSync();
       await recordLoginAttempt(identifier, true);
       await db.users.where('username').equals(identifier).first().then(async (existingUser) => {
         if (existingUser) {
@@ -260,7 +260,7 @@ export function AuthProvider({ children }) {
       sessionStorage.setItem('tanihr_user', JSON.stringify(userData));
       setUser(userData);
       setPermissions(computePermissions(roles));
-      initializeOfflineData();
+      initializeSync();
       await recordLoginAttempt(identifier, true);
       await db.users.update(localUser.id, { lastLogin: new Date().toISOString() });
       return { success: true };
@@ -431,7 +431,7 @@ export function AuthProvider({ children }) {
         const roles = parsed.roles || [mapLegacyRole(parsed.primaryRole || parsed.role)];
         setUser({ ...parsed, roles, primaryRole: parsed.primaryRole || roles[0] });
         setPermissions(computePermissions(roles));
-        initializeOfflineData();
+        initializeSync();
       } else {
         setUser(null);
         setPermissions(null);

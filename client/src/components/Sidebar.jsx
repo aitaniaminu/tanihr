@@ -24,7 +24,7 @@ const settingsSubItems = [
   { path: '/skills', label: 'Skills', icon: Award, permission: 'canManageTraining' },
   { path: '/contracts', label: 'Contracts', icon: Briefcase, permission: 'canViewAllEmployees' },
   { path: '/login-history', label: 'Login History', icon: Clock, permission: 'canManageUsers' },
-  { path: '/sync', label: 'Sync Data', icon: RefreshCw, permission: 'canManageUsers' },
+  { path: '/sync', label: 'Sync Database', icon: RefreshCw, permission: 'canManageUsers' },
   { path: '/import', label: 'Import CSV', icon: Download, permission: 'canManageUsers' },
 ];
 

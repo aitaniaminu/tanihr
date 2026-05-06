@@ -7,85 +7,90 @@
 
 ## Session History
 
-### Latest Session (2026-05-06) - Responsive UI Improvements
+### Session 3 (2026-05-06) - Bidirectional Real-Time Database Sync
 
 #### Work Completed
+1. **syncEngine.js** (NEW) - Unified bidirectional sync engine:
+   - Automatic sync from Supabase → IndexedDB on login
+   - Real-time Supabase subscriptions → IndexedDB updates
+   - Dexie hooks for automatic IndexedDB → Supabase sync (debounced 2s)
+   - Conflict resolution: Supabase as source of truth
+   - Offline mode with queued changes
+   - Sync status tracking with event listeners
+
+2. **SyncDatabase.jsx** (NEW) - Sync status monitoring UI:
+   - Real-time connection status (Online/Offline)
+   - Sync state display (Active, Syncing, Offline)
+   - Last sync time
+   - Force Sync button for manual trigger
+   - Clear Local Data button
+   - Live sync log viewer
+   - How It Works documentation panel
+
+3. **AuthContext.jsx** - Updated to use syncEngine.initializeSync() on login/session restore
+
+4. **useOfflineData.js** - Updated to use syncEngine instead of offlineSync
+
+5. **offlineSync.js** - Now re-exports from syncEngine.js (backward compat)
+
+6. **Sidebar.jsx** - Updated label: "Sync Data" → "Sync Database"
+
+7. **App.jsx** - Renamed import: SyncSupabase → SyncDatabase
+
+8. **DELETED** files:
+   - `src/lib/syncSupabase.js` (merged into syncEngine.js)
+   - `src/pages/SyncSupabase.jsx` (replaced by SyncDatabase.jsx)
+
+#### Build Verification
+- ESLint passed (pre-existing warnings only)
+- `npm run build` passed successfully
+
+### Session 2 (2026-05-06) - Sync UI Fix
+1. **SyncSupabase.jsx** - Added "Sync from Supabase" button (now replaced by syncEngine)
+
+### Session 1 (2026-05-06) - Responsive UI Improvements
 1. **Layout.jsx** - Added responsive container with max-width and adaptive padding
-2. **Sidebar.jsx** - Made navigation responsive:
-   - Mobile detection with window.innerWidth
-   - Nav items hide text on mobile, show icons only
-   - Expandable sections for User Management and Settings
-   - Collapsible on mobile with hamburger menu
-   - Sticky user profile section at bottom
+2. **Sidebar.jsx** - Made navigation responsive (mobile detection, collapsible sections)
+3. **Dashboard.jsx** - Fixed responsive cards and actions
+4. **UserManagement.jsx** - Made modal responsive
+5. **Settings.jsx** - Made form responsive
+6. **LeaveManagement.jsx** - Made card grids responsive
+7. **Skills.jsx** - Made form grids responsive
+8. **DocumentVault.jsx** - Made containers responsive
+9. **MyProfile.jsx** - Made form responsive
 
-3. **Dashboard.jsx** - Fixed responsive cards and actions:
-   - Stat cards: 2-col mobile → 4-col lg
-   - Quick actions: responsive padding and icon sizes
-   - Removed duplicate stats cards section
+## Architecture
 
-4. **UserManagement.jsx** - Made modal responsive:
-   - max-w-sm on mobile, max-w-2xl on sm+
-   - Responsive padding (p-2 → p-4 → p-6)
-   - Profile grid: 1-col mobile → 2-col sm+
-
-5. **Settings.jsx** - Made form responsive:
-   - Padding responsive (p-4 mobile, p-6 desktop)
-   - Button layout: stacked on mobile, inline on sm+
-   - Input padding responsive
-
-6. **LeaveManagement.jsx** - Made card grids responsive:
-   - Leave balance: grid-cols-2 → grid-cols-3 sm
-
-7. **Skills.jsx** - Made form grids responsive:
-   - Changed grid-cols-2 to grid-cols-1 sm:grid-cols-2
-
-8. **DocumentVault.jsx** - Made containers responsive:
-   - Changed p-6 to p-4 sm:p-6
-
-9. **MyProfile.jsx** - Made form responsive:
-   - Padding and flex layout responsive
-
-### Earlier Sessions Summary
-- Synced IndexedDB schema (v8) with Supabase - added new tables
-- Fixed Reports.jsx to use IndexedDB instead of Supabase (eliminates 1000-row limit)
-- Fixed offlineSync.js to paginate through Supabase (1000 rows at a time)
-- Restructured Sidebar with expandable Settings section
+### Sync Engine
+```
+┌─────────────────────────────────────────────────────┐
+│                    Sync Engine                       │
+├──────────────────────────┬──────────────────────────┤
+│  Supabase → IndexedDB    │  IndexedDB → Supabase    │
+│  - Initial fetch on login│  - Dexie hooks (creating │
+│  - Real-time subscriptions│    updating, deleting)   │
+│  - Pagination (1000/batch)│  - Debounced 2s batch    │
+│  - Automatic on reconnect│  - Upsert with conflict   │
+│                          │    resolution             │
+└──────────────────────────┴──────────────────────────┘
+```
 
 ## Key Decisions
-- Reports now uses IndexedDB (db.employees.toArray()) instead of Supabase
-- Sync uses pagination (.range(from, to)) to fetch all Supabase records in batches
-- User Management moved under expandable section with Change Password inside
-
-## Next Steps
-- ~~Test the application end-to-end~~ - BUILD VERIFIED (passed)
-- ~~Verify Reports shows correct employee count after sync~~ - Requires manual testing (needs Supabase connection)
-- ~~Continue UI improvements if needed~~ - FIXED: Added missing "Sync from Supabase" button
-
-## Work Completed (2026-05-06)
-1. **SyncSupabase.jsx** - Added "Sync from Supabase" functionality:
-   - Added blue "Sync from Supabase" button that calls syncFromSupabase()
-   - Calls offlineSync.js syncFromSupabase() to fetch data from Supabase
-   - Added proper logging and status display
-   - Maintained existing "Sync to Supabase" functionality
-   - Restructured page with two clear sections
-
-2. **Build Verification** - npm run build passed successfully
-
-## Manual Testing Required
-To verify end-to-end functionality:
-1. Start the dev server: `npm run dev`
-2. Login to the application
-3. Go to Settings → Sync Data (or /sync route)
-4. Click "Sync from Supabase" to populate IndexedDB
-5. Navigate to Reports to verify employee count displays correctly
+- Reports uses IndexedDB (db.employees.toArray()) instead of Supabase
+- Sync engine handles both directions automatically - no manual intervention needed
+- Supabase is the source of truth for conflict resolution
+- Offline mode works fully; changes queue and sync when connection restored
+- Dexie hooks prevent infinite loops via `isSyncingFromSupabase` flag
 
 ## File Locations
 - Client: `/home/aminua/Documents/Tani Nigeria Ltd/TaniHR/tanihr/client`
 - Backend Schema: `schema.sql` in root
 - IndexedDB: `src/db/indexedDB.js`
-- Sync Logic: `src/lib/offlineSync.js`
+- Sync Engine: `src/lib/syncEngine.js`
+- Sync UI: `src/pages/SyncDatabase.jsx`
 
 ## Important Notes
-- After code deployment, user must go to Settings → Sync Data to fetch all 3084 employees into IndexedDB
-- IndexedDB version bumped to 8 with new tables
+- IndexedDB version is 8 with all tables defined
 - Supabase schema has users table with roles TEXT[] array
+- Sync is automatic on login - no manual sync button needed for normal operation
+- Sync Database page (/sync) shows real-time sync status and logs
