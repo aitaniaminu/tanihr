@@ -398,28 +398,30 @@ export async function triggerFullSync() {
   if (isSyncing) return;
   addLog('Manual full sync triggered');
 
-  await syncFromSupabase();
-
   if (!isOnline) {
     addLog('Cannot sync to Supabase - offline');
     return;
   }
 
-  addLog('Syncing IndexedDB → Supabase...');
-
-  const employees = await db.employees.toArray();
-  let synced = 0;
-
-  for (const emp of employees) {
-    try {
-      await supabase.from('employees').upsert(mapEmployeeToSupabase(emp), { onConflict: 'file_number' });
-      synced++;
-    } catch (error) {
-      addLog(`Error syncing employee: ${error.message}`);
+  const localEmployees = await db.employees.toArray();
+  if (localEmployees.length > 0) {
+    addLog(`Pushing ${localEmployees.length} local employees to Supabase...`);
+    let pushed = 0;
+    for (const emp of localEmployees) {
+      try {
+        await supabase.from('employees').upsert(mapEmployeeToSupabase(emp), { onConflict: 'file_number' });
+        pushed++;
+      } catch (error) {
+        addLog(`Error pushing employee: ${error.message}`);
+      }
     }
+    addLog(`Pushed ${pushed}/${localEmployees.length} employees to Supabase`);
   }
 
-  addLog(`Full sync complete: ${synced}/${employees.length} employees synced`);
+  addLog('Refreshing from Supabase...');
+  await syncFromSupabase();
+
+  addLog('Full sync complete');
   lastSyncTime = new Date();
   syncStatus = 'active';
   notifyListeners();

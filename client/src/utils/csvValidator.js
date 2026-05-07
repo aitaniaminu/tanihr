@@ -1,5 +1,6 @@
 import Papa from 'papaparse';
 import { db } from '../db/indexedDB';
+import supabase from '../lib/supabase';
 import {
   parseDDMMYYYY,
   toISODate,
@@ -196,6 +197,7 @@ export async function validateAndImport(rows) {
 
 export async function importValidRecords(validRows) {
   const autoCreatedRefs = [];
+  const supabaseEmployees = [];
 
   const existingDepartments = await db.departments.toArray();
   const existingRanks = await db.ranks.toArray();
@@ -297,6 +299,40 @@ export async function importValidRecords(validRows) {
           };
 
           await db.employees.add(employee);
+
+          supabaseEmployees.push({
+            file_number: employee.fileNumber,
+            ippis_number: employee.ippisNumber,
+            psn: employee.psn,
+            surname: employee.surname,
+            first_name: employee.firstName,
+            middle_name: employee.middleName,
+            date_of_birth: employee.dateOfBirth,
+            sex: employee.sex,
+            phone: employee.phone,
+            email: employee.email,
+            department_name: employee.department,
+            cadre: employee.cadre,
+            rank_name: employee.rank,
+            salary_grade_level: employee.salaryGradeLevel,
+            step: employee.step?.toString(),
+            appointment_type: employee.appointmentType,
+            date_of_first_appointment: employee.dateOfFirstAppointment,
+            date_of_confirmation: employee.dateOfConfirmation,
+            date_of_present_appointment: employee.dateOfPresentAppointment,
+            pfa_name: employee.pfaName,
+            rsa_pin: employee.rsaPin,
+            state_of_origin: employee.state,
+            lga: employee.lga,
+            geopolitical_zone: employee.geopoliticalZone,
+            remark: employee.remark,
+            status: employee.status,
+            location: employee.location,
+            qualification: employee.qualification,
+            nature_of_job: employee.natureOfJob,
+            salary_structure: employee.salaryStructure,
+            retirement_date: employee.retirementDate,
+          });
         }
 
         const storedUser = sessionStorage.getItem('tanihr_user');
@@ -323,6 +359,21 @@ export async function importValidRecords(validRows) {
   } catch (error) {
     console.error('Import transaction failed:', error);
     throw error;
+  }
+
+  if (supabaseEmployees.length > 0) {
+    try {
+      const { error } = await supabase
+        .from('employees')
+        .upsert(supabaseEmployees, { onConflict: 'file_number' });
+      if (error) {
+        console.error('Supabase bulk upsert error:', error);
+      } else {
+        console.log(`Upserted ${supabaseEmployees.length} employees to Supabase`);
+      }
+    } catch (error) {
+      console.error('Supabase upsert failed:', error);
+    }
   }
 
   return autoCreatedRefs;
