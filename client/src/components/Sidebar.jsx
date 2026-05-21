@@ -1,7 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { LayoutDashboard, Users, Download, Building2, X, Network, FileText, RefreshCw, BarChart3, Award, Calendar, Briefcase, Settings, Shield, User, Clock, Clock3, Lock, ChevronDown, ChevronRight } from 'lucide-react';
+import { LayoutDashboard, Users, Download, Building2, X, Network, FileText, RefreshCw, BarChart3, Award, Calendar, Briefcase, Settings, Shield, User, Clock, Clock3, Lock, ChevronDown, ChevronRight, UserPlus } from 'lucide-react';
 
 const mainNavItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: null },
@@ -9,6 +9,7 @@ const mainNavItems = [
   { path: '/departments', label: 'Departments', icon: Building2, permission: null },
   { path: '/attendance', label: 'Attendance', icon: Clock3, permission: null },
   { path: '/leave', label: 'Leave', icon: Calendar, permission: 'canManageLeave' },
+  { path: '/recruitment', label: 'Recruitment', icon: UserPlus, permission: null },
   { path: '/reports', label: 'Reports', icon: BarChart3, permission: 'canViewReports' },
   { path: '/my-profile', label: 'My Profile', icon: User, permission: null },
 ];

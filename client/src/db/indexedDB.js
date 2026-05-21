@@ -29,6 +29,9 @@ db.version(8).stores({
   auditLog: '++id, tableName, recordId, operation, changedAt, changedBy',
   loginHistory: '++id, userId, username, action, success, createdAt',
   userSessions: '++id, userId, sessionToken, isActive, createdAt, expiresAt',
+  jobPostings: '++id, &referenceNumber, title, department, status, postedDate, closingDate',
+  candidates: '++id, jobId, firstName, lastName, email, phone, status, appliedDate',
+  candidatePipeline: '++id, candidateId, stage, notes, updatedAt',
 }).upgrade(tx => {
   return tx.table('departments').toCollection().modify(dept => {
     if (dept.parentId === undefined) dept.parentId = null;

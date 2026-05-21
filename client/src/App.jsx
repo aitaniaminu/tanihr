@@ -24,6 +24,7 @@ const UserManagement = lazy(() => import('./pages/UserManagement'));
 const MyProfile = lazy(() => import('./pages/MyProfile'));
 const ChangePassword = lazy(() => import('./pages/ChangePassword'));
 const LoginHistory = lazy(() => import('./pages/LoginHistory'));
+const Recruitment = lazy(() => import('./pages/Recruitment'));
 
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-64">
@@ -300,6 +301,18 @@ export default function App() {
               <LazyRoute>
                 <Layout>
                   <ChangePassword />
+                </Layout>
+              </LazyRoute>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/recruitment"
+          element={
+            <ProtectedRoute>
+              <LazyRoute>
+                <Layout>
+                  <Recruitment />
                 </Layout>
               </LazyRoute>
             </ProtectedRoute>
