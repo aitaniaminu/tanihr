@@ -25,7 +25,6 @@ export default function Recruitment() {
   const [showCandidateForm, setShowCandidateForm] = useState(false);
   const [editingJob, setEditingJob] = useState(null);
   const [selectedJobId, setSelectedJobId] = useState('all');
-  const [selectedCandidate, setSelectedCandidate] = useState(null);
 
   const [jobFormData, setJobFormData] = useState({
     title: '',

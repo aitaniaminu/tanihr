@@ -25,6 +25,10 @@ const MyProfile = lazy(() => import('./pages/MyProfile'));
 const ChangePassword = lazy(() => import('./pages/ChangePassword'));
 const LoginHistory = lazy(() => import('./pages/LoginHistory'));
 const Recruitment = lazy(() => import('./pages/Recruitment'));
+const Discipline = lazy(() => import('./pages/Discipline'));
+const Promotions = lazy(() => import('./pages/Promotions'));
+const Postings = lazy(() => import('./pages/Postings'));
+const Offboarding = lazy(() => import('./pages/Offboarding'));
 
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-64">
@@ -313,6 +317,54 @@ export default function App() {
               <LazyRoute>
                 <Layout>
                   <Recruitment />
+                </Layout>
+              </LazyRoute>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/discipline"
+          element={
+            <ProtectedRoute>
+              <LazyRoute>
+                <Layout>
+                  <Discipline />
+                </Layout>
+              </LazyRoute>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/promotions"
+          element={
+            <ProtectedRoute>
+              <LazyRoute>
+                <Layout>
+                  <Promotions />
+                </Layout>
+              </LazyRoute>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/postings"
+          element={
+            <ProtectedRoute>
+              <LazyRoute>
+                <Layout>
+                  <Postings />
+                </Layout>
+              </LazyRoute>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/offboarding"
+          element={
+            <ProtectedRoute>
+              <LazyRoute>
+                <Layout>
+                  <Offboarding />
                 </Layout>
               </LazyRoute>
             </ProtectedRoute>

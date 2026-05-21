@@ -32,6 +32,10 @@ db.version(8).stores({
   jobPostings: '++id, &referenceNumber, title, department, status, postedDate, closingDate',
   candidates: '++id, jobId, firstName, lastName, email, phone, status, appliedDate',
   candidatePipeline: '++id, candidateId, stage, notes, updatedAt',
+  disciplineCases: '++id, caseNumber, employeeId, offenseCategory, status, reportedDate',
+  promotions: '++id, promotionNumber, employeeId, newRank, effectiveDate, isActing',
+  postings: '++id, postingNumber, employeeId, fromDepartment, toDepartment, postingType, effectiveDate',
+  offboardings: '++id, offboardingNumber, employeeId, type, stage, noticeDate, lastWorkingDay',
 }).upgrade(tx => {
   return tx.table('departments').toCollection().modify(dept => {
     if (dept.parentId === undefined) dept.parentId = null;
