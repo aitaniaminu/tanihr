@@ -36,6 +36,13 @@ db.version(8).stores({
   promotions: '++id, promotionNumber, employeeId, newRank, effectiveDate, isActing',
   postings: '++id, postingNumber, employeeId, fromDepartment, toDepartment, postingType, effectiveDate',
   offboardings: '++id, offboardingNumber, employeeId, type, stage, noticeDate, lastWorkingDay',
+  appraisalCycles: '++id, name, year, period, status, startDate, endDate',
+  appraisals: '++id, cycleId, employeeId, reviewerId, overallRating, status, submittedDate',
+  appraisalGoals: '++id, appraisalId, description, target, achieved, weight, rating',
+  appraisalFeedback: '++id, appraisalId, fromEmployeeId, toEmployeeId, feedback, category, createdAt',
+  trainingCourses: '++id, title, provider, category, duration, cost, status, startDate, endDate',
+  trainingEnrollments: '++id, courseId, employeeId, status, enrollmentDate, completionDate, score',
+  expenses: '++id, employeeId, category, amount, description, status, submittedDate, approvedBy, approvedDate',
 }).upgrade(tx => {
   return tx.table('departments').toCollection().modify(dept => {
     if (dept.parentId === undefined) dept.parentId = null;

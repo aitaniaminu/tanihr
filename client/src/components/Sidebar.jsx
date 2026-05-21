@@ -1,7 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { LayoutDashboard, Users, Download, Building2, X, Network, FileText, RefreshCw, BarChart3, Award, Calendar, Briefcase, Settings, Shield, User, Clock, Clock3, Lock, ChevronDown, ChevronRight, UserPlus, AlertTriangle, ArrowUpRight, MapPin, LogOut } from 'lucide-react';
+import { LayoutDashboard, Users, Download, Building2, X, Network, FileText, RefreshCw, BarChart3, Award, Calendar, Briefcase, Settings, Shield, User, Clock, Clock3, Lock, ChevronDown, ChevronRight, UserPlus, AlertTriangle, ArrowUpRight, MapPin, LogOut, Star, BookOpen, DollarSign } from 'lucide-react';
 
 const mainNavItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: null },
@@ -19,6 +19,12 @@ const hrManagementSubItems = [
   { path: '/promotions', label: 'Promotions', icon: ArrowUpRight, permission: null },
   { path: '/postings', label: 'Postings', icon: MapPin, permission: null },
   { path: '/offboarding', label: 'Offboarding', icon: LogOut, permission: null },
+];
+
+const growthFinanceSubItems = [
+  { path: '/performance', label: 'Performance', icon: Star, permission: null },
+  { path: '/training', label: 'Training', icon: BookOpen, permission: null },
+  { path: '/expenses', label: 'Expenses', icon: DollarSign, permission: null },
 ];
 
 const userManagementSubItems = [
@@ -43,6 +49,7 @@ export default function Sidebar({ isOpen, toggle }) {
   const [settingsExpanded, setSettingsExpanded] = useState(true);
   const [userManagementExpanded, setUserManagementExpanded] = useState(true);
   const [hrManagementExpanded, setHrManagementExpanded] = useState(true);
+  const [growthFinanceExpanded, setGrowthFinanceExpanded] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
@@ -120,6 +127,36 @@ export default function Sidebar({ isOpen, toggle }) {
             {hrManagementExpanded && (
               <div className="ml-2 lg:ml-4 mt-1 space-y-1">
                 {hrManagementSubItems.map((item) => (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    className={`flex items-center px-3 lg:px-4 py-2 lg:py-2.5 rounded-lg transition text-sm ${location.pathname === item.path ? 'bg-green-600' : 'hover:bg-green-600'}`}
+                    onClick={() => window.innerWidth < 1024 && toggle()}
+                  >
+                    <span className="mr-2 lg:mr-3 flex-shrink-0">
+                      <item.icon className="w-4 h-4" />
+                    </span>
+                    <span className="truncate">{item.label}</span>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="mt-2 lg:mt-4 pt-2 lg:pt-4 border-t border-green-700">
+            <button
+              onClick={() => setGrowthFinanceExpanded(!growthFinanceExpanded)}
+              className="flex items-center w-full px-3 lg:px-4 py-2.5 lg:py-3 rounded-lg transition hover:bg-green-700"
+            >
+              <span className="lg:text-xl mr-2 lg:mr-3 flex-shrink-0">
+                {growthFinanceExpanded ? <ChevronDown className="w-4 h-4 lg:w-5 lg:h-5" /> : <ChevronRight className="w-4 h-4 lg:w-5 lg:h-5" />}
+              </span>
+              <span className="text-sm lg:text-base font-semibold truncate">Growth & Finance</span>
+            </button>
+            
+            {growthFinanceExpanded && (
+              <div className="ml-2 lg:ml-4 mt-1 space-y-1">
+                {growthFinanceSubItems.map((item) => (
                   <Link
                     key={item.path}
                     to={item.path}

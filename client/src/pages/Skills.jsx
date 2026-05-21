@@ -1,7 +1,6 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import supabase from '../lib/supabase';
-import { Plus, Search, Award, X, Check, Clock, Trash2, Edit } from 'lucide-react';
+import { useEffect, useState, useCallback } from 'react';
+import { db } from '../db/indexedDB';
+import { Plus, Search, Award, X, Check, Trash2, Edit, Clock } from 'lucide-react';
 
 const SKILL_LEVELS = ['Beginner', 'Intermediate', 'Advanced', 'Expert'];
 const CERT_STATUS = ['Pending', 'In Progress', 'Certified', 'Expired'];
@@ -23,9 +22,9 @@ const SkillCard = ({ skill, onEdit, onDelete }) => (
       </span>
     </div>
     <div className="mt-3 flex items-center gap-4 text-xs text-gray-500">
-      <span>{skill.employee_name}</span>
-      {skill.date_obtained && <span>• Obtained: {skill.date_obtained}</span>}
-      {skill.date_expires && <span>• Expires: {skill.date_expires}</span>}
+      <span>{skill.employeeName}</span>
+      {skill.dateObtained && <span>• Obtained: {skill.dateObtained}</span>}
+      {skill.dateExpires && <span>• Expires: {skill.dateExpires}</span>}
     </div>
     <div className="mt-3 pt-3 border-t border-gray-100 flex justify-end gap-2">
       <button onClick={() => onEdit(skill)} className="text-green-600 hover:bg-green-50 p-1.5 rounded-lg">
@@ -55,9 +54,9 @@ const CertificationCard = ({ cert, onEdit, onDelete }) => (
       </span>
     </div>
     <div className="mt-3 flex items-center gap-4 text-xs text-gray-500">
-      <span>{cert.employee_name}</span>
-      {cert.date_obtained && <span>• Issued: {cert.date_obtained}</span>}
-      {cert.date_expires && <span>• Expires: {cert.date_expires}</span>}
+      <span>{cert.employeeName}</span>
+      {cert.dateObtained && <span>• Issued: {cert.dateObtained}</span>}
+      {cert.dateExpires && <span>• Expires: {cert.dateExpires}</span>}
     </div>
     {cert.description && (
       <p className="mt-2 text-sm text-gray-600">{cert.description}</p>
@@ -82,97 +81,95 @@ export default function Skills() {
   const [activeTab, setActiveTab] = useState('skills');
   const [showForm, setShowForm] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
-  const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
-    employee_id: '',
+    employeeId: '',
     name: '',
     category: '',
     level: 'Intermediate',
     status: 'Pending',
-    date_obtained: '',
-    date_expires: '',
+    dateObtained: '',
+    dateExpires: '',
     provider: '',
     description: '',
   });
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const [empRes, skillRes, certRes] = await Promise.all([
-        supabase.from('employees').select('id, surname, first_name'),
-        supabase.from('employee_skills').select('*'),
-        supabase.from('employee_certifications').select('*'),
+      const [emps, skillData, certData] = await Promise.all([
+        db.employees.toArray(),
+        db.employeeSkills.toArray(),
+        db.employeeCertifications.toArray(),
       ]);
-      
-      setEmployees(empRes.data || []);
-      
-      const skillData = (skillRes.data || []).map(s => ({
-        ...s,
-        employee_name: empRes.data?.find(e => e.id === s.employee_id)
-          ? `${e.surname}, ${e.first_name}` : 'Unknown'
-      }));
-      setSkills(skillData);
 
-      const certData = (certRes.data || []).map(c => ({
-        ...c,
-        employee_name: empRes.data?.find(e => e.id === c.employee_id)
-          ? `${e.surname}, ${e.first_name}` : 'Unknown'
+      setEmployees(emps);
+
+      const empMap = new Map(emps.map(e => [e.id, `${e.surname}, ${e.firstName}`]));
+
+      const skillsMapped = skillData.map(s => ({
+        ...s,
+        employeeName: empMap.get(s.employeeId) || 'Unknown',
       }));
-      setCertifications(certData);
+      setSkills(skillsMapped);
+
+      const certsMapped = certData.map(c => ({
+        ...c,
+        employeeName: empMap.get(c.employeeId) || 'Unknown',
+      }));
+      setCertifications(certsMapped);
     } catch (err) {
       console.error('Error loading skills data:', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       const data = {
-        employee_id: formData.employee_id,
+        employeeId: formData.employeeId,
         name: formData.name,
         category: formData.category,
         level: formData.level,
         status: formData.status,
-        date_obtained: formData.date_obtained || null,
-        date_expires: formData.date_expires || null,
+        dateObtained: formData.dateObtained || null,
+        dateExpires: formData.dateExpires || null,
         provider: formData.provider || null,
         description: formData.description || null,
       };
 
-      const table = activeTab === 'skills' ? 'employee_skills' : 'employee_certifications';
-      
+      const table = activeTab === 'skills' ? 'employeeSkills' : 'employeeCertifications';
+
       if (editingItem) {
-        await supabase.from(table).update(data).eq('id', editingItem.id);
+        await db[table].update(editingItem.id, data);
       } else {
-        await supabase.from(table).insert(data);
+        await db[table].add(data);
       }
 
       setShowForm(false);
       setEditingItem(null);
       setFormData({
-        employee_id: '', name: '', category: '', level: 'Intermediate',
-        status: 'Pending', date_obtained: '', date_expires: '',
+        employeeId: '', name: '', category: '', level: 'Intermediate',
+        status: 'Pending', dateObtained: '', dateExpires: '',
         provider: '', description: '',
       });
       loadData();
     } catch (err) {
       console.error('Error saving:', err);
-      alert('Failed to save');
     }
   };
 
   const handleDelete = async (item) => {
     if (!confirm(`Delete ${item.name}?`)) return;
     try {
-      const table = activeTab === 'skills' ? 'employee_skills' : 'employee_certifications';
-      await supabase.from(table).delete().eq('id', item.id);
+      const table = activeTab === 'skills' ? 'employeeSkills' : 'employeeCertifications';
+      await db[table].delete(item.id);
       loadData();
     } catch (err) {
       console.error('Error deleting:', err);
@@ -182,20 +179,20 @@ export default function Skills() {
   const handleEdit = (item) => {
     setEditingItem(item);
     setFormData({
-      employee_id: item.employee_id || '',
+      employeeId: item.employeeId || '',
       name: item.name || '',
       category: item.category || '',
       level: item.level || 'Intermediate',
       status: item.status || 'Pending',
-      date_obtained: item.date_obtained || '',
-      date_expires: item.date_expires || '',
+      dateObtained: item.dateObtained || '',
+      dateExpires: item.dateExpires || '',
       provider: item.provider || '',
       description: item.description || '',
     });
     setShowForm(true);
   };
 
-  const filteredSkills = skills.filter(s => 
+  const filteredSkills = skills.filter(s =>
     s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     s.category?.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -273,7 +270,7 @@ export default function Skills() {
         )}
       </div>
 
-      {((activeTab === 'skills' && filteredSkills.length === 0) || 
+      {((activeTab === 'skills' && filteredSkills.length === 0) ||
         (activeTab === 'certifications' && filteredCerts.length === 0)) && (
         <div className="text-center py-12 text-gray-500">
           No {activeTab} found. Add your first {activeTab === 'skills' ? 'skill' : 'certification'}!
@@ -296,14 +293,14 @@ export default function Skills() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Employee *</label>
                 <select
-                  value={formData.employee_id}
-                  onChange={(e) => setFormData(f => ({ ...f, employee_id: e.target.value }))}
+                  value={formData.employeeId}
+                  onChange={(e) => setFormData(f => ({ ...f, employeeId: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                   required
                 >
                   <option value="">Select Employee</option>
                   {employees.map(emp => (
-                    <option key={emp.id} value={emp.id}>{emp.surname}, {emp.first_name}</option>
+                    <option key={emp.id} value={emp.id}>{emp.surname}, {emp.firstName}</option>
                   ))}
                 </select>
               </div>
@@ -339,9 +336,9 @@ export default function Skills() {
                   </label>
                   <select
                     value={activeTab === 'skills' ? formData.level : formData.status}
-                    onChange={(e) => setFormData(f => ({ 
-                      ...f, 
-                      [activeTab === 'skills' ? 'level' : 'status']: e.target.value 
+                    onChange={(e) => setFormData(f => ({
+                      ...f,
+                      [activeTab === 'skills' ? 'level' : 'status']: e.target.value
                     }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                   >
@@ -372,8 +369,8 @@ export default function Skills() {
                   </label>
                   <input
                     type="date"
-                    value={formData.date_obtained}
-                    onChange={(e) => setFormData(f => ({ ...f, date_obtained: e.target.value }))}
+                    value={formData.dateObtained}
+                    onChange={(e) => setFormData(f => ({ ...f, dateObtained: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                   />
                 </div>
@@ -381,8 +378,8 @@ export default function Skills() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Expires</label>
                   <input
                     type="date"
-                    value={formData.date_expires}
-                    onChange={(e) => setFormData(f => ({ ...f, date_expires: e.target.value }))}
+                    value={formData.dateExpires}
+                    onChange={(e) => setFormData(f => ({ ...f, dateExpires: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                   />
                 </div>

@@ -29,6 +29,9 @@ const Discipline = lazy(() => import('./pages/Discipline'));
 const Promotions = lazy(() => import('./pages/Promotions'));
 const Postings = lazy(() => import('./pages/Postings'));
 const Offboarding = lazy(() => import('./pages/Offboarding'));
+const Performance = lazy(() => import('./pages/Performance'));
+const Training = lazy(() => import('./pages/Training'));
+const Expenses = lazy(() => import('./pages/Expenses'));
 
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-64">
@@ -365,6 +368,42 @@ export default function App() {
               <LazyRoute>
                 <Layout>
                   <Offboarding />
+                </Layout>
+              </LazyRoute>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/performance"
+          element={
+            <ProtectedRoute>
+              <LazyRoute>
+                <Layout>
+                  <Performance />
+                </Layout>
+              </LazyRoute>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/training"
+          element={
+            <ProtectedRoute>
+              <LazyRoute>
+                <Layout>
+                  <Training />
+                </Layout>
+              </LazyRoute>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/expenses"
+          element={
+            <ProtectedRoute>
+              <LazyRoute>
+                <Layout>
+                  <Expenses />
                 </Layout>
               </LazyRoute>
             </ProtectedRoute>
