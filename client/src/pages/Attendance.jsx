@@ -52,15 +52,23 @@ export default function Attendance() {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const [emps, logs] = await Promise.all([
+      const [emps, logs, users] = await Promise.all([
         db.employees.toArray(),
         db.attendanceLogs.toArray(),
+        db.users.toArray(),
       ]);
 
-      const empsMapped = emps.map(e => ({
-        ...e,
-        name: `${e.surname}, ${e.firstName}`,
-      }));
+      const userMap = new Map(users.map(u => [u.employeeId, u.username]));
+
+      const empsMapped = emps.map(e => {
+        const username = userMap.get(e.id);
+        return {
+          ...e,
+          name: `${e.surname}, ${e.firstName}`,
+          displayName: username ? `${e.surname}, ${e.firstName} (@${username})` : `${e.surname}, ${e.firstName}`,
+          username: username || null,
+        };
+      });
 
       setEmployees(empsMapped);
       setAttendanceLogs(logs);
@@ -199,7 +207,7 @@ export default function Attendance() {
           >
             <option value="">My Attendance</option>
             {employees.map(emp => (
-              <option key={emp.id} value={emp.id}>{emp.name}</option>
+              <option key={emp.id} value={emp.id}>{emp.displayName || emp.name}</option>
             ))}
           </select>
         </div>

@@ -19,6 +19,7 @@ export default function EmployeeDetails({ employeeId }) {
   const navigate = useNavigate();
   const [emp, setEmp] = useState(null);
   const [manager, setManager] = useState(null);
+  const [username, setUsername] = useState(null);
   const [skills, setSkills] = useState([]);
   const [certifications, setCertifications] = useState([]);
   const [documents, setDocuments] = useState([]);
@@ -44,6 +45,10 @@ export default function EmployeeDetails({ employeeId }) {
           await db.employees.put(data);
           const mapped = mapEmployeeFromSupabase(data);
           setEmp(mapped);
+          
+          db.users.where('employeeId').equals(data.id).first().then(user => {
+            if (user) setUsername(user.username);
+          });
           
           if (data.manager_id) {
             const { data: mgrData } = await supabase
@@ -233,6 +238,7 @@ export default function EmployeeDetails({ employeeId }) {
                   <p className="text-lg font-bold text-gray-800">
                     {emp.surname}, {emp.firstName} {emp.middleName}
                   </p>
+                  {username && <p className="text-sm text-gray-500">@{username}</p>}
                   <p className="text-gray-600">{emp.rank} • {emp.department}</p>
                   <p className="text-sm text-gray-500">{emp.fileNumber}</p>
                 </div>

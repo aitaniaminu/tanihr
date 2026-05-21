@@ -21,7 +21,7 @@ const LeaveBalanceCard = ({ employee, balances, leaveTypes }) => (
         {employee.name?.charAt(0)}
       </div>
       <div>
-        <h3 className="font-semibold text-gray-900">{employee.name}</h3>
+        <h3 className="font-semibold text-gray-900">{employee.displayName || employee.name}</h3>
         <p className="text-xs text-gray-500">{employee.department}</p>
       </div>
     </div>
@@ -146,18 +146,26 @@ export default function LeaveManagement() {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const [emps, requests, types, holidaysData] = await Promise.all([
+      const [emps, requests, types, holidaysData, users] = await Promise.all([
         db.employees.toArray(),
         db.leaveRequests.toArray(),
         db.leaveTypes.toArray(),
         db.publicHolidays.toArray(),
+        db.users.toArray(),
       ]);
 
-      const empsMapped = emps.map(e => ({
-        ...e,
-        name: `${e.surname}, ${e.firstName}`,
-        department: e.department,
-      }));
+      const userMap = new Map(users.map(u => [u.employeeId, u.username]));
+
+      const empsMapped = emps.map(e => {
+        const username = userMap.get(e.id);
+        return {
+          ...e,
+          name: `${e.surname}, ${e.firstName}`,
+          displayName: username ? `${e.surname}, ${e.firstName} (@${username})` : `${e.surname}, ${e.firstName}`,
+          username: username || null,
+          department: e.department,
+        };
+      });
 
       const requestsMapped = requests.map(r => ({
         ...r,
@@ -577,7 +585,7 @@ export default function LeaveManagement() {
                 >
                   <option value="">Select Employee</option>
                   {employees.map(emp => (
-                    <option key={emp.id} value={emp.id}>{emp.name}</option>
+                    <option key={emp.id} value={emp.id}>{emp.displayName || emp.name}</option>
                   ))}
                 </select>
               </div>

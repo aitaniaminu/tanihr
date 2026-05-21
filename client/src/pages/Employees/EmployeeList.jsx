@@ -11,7 +11,7 @@ import {
 const PAGE_SIZE = 20;
 const VIEWS = { KANBAN: 'kanban', LIST: 'list', GRID: 'grid' };
 
-const EmployeeCard = ({ employee, onView, onEdit, onDelete }) => {
+const EmployeeCard = ({ employee, onView, onEdit, onDelete, username }) => {
   const initials = `${employee.surname?.charAt(0) || ''}${employee.first_name?.charAt(0) || ''}`;
   const statusColors = {
     Active: 'bg-green-100 text-green-700',
@@ -42,6 +42,7 @@ const EmployeeCard = ({ employee, onView, onEdit, onDelete }) => {
             <h3 className="font-semibold text-gray-900 truncate">
               {employee.surname}, {employee.first_name}
             </h3>
+            {username && <p className="text-xs text-gray-400 truncate">@{username}</p>}
             <p className="text-sm text-gray-500 truncate">{employee.rank_name}</p>
             <span className={`inline-flex mt-1 px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[employee.status] || statusColors.Active}`}>
               {employee.status || 'Active'}
@@ -96,7 +97,7 @@ const EmployeeCard = ({ employee, onView, onEdit, onDelete }) => {
   );
 };
 
-const EmployeeGridCard = ({ employee, onView, onEdit, onDelete }) => {
+const EmployeeGridCard = ({ employee, onView, onEdit, onDelete, username }) => {
   const initials = `${employee.surname?.charAt(0) || ''}${employee.first_name?.charAt(0) || ''}`;
   
   return (
@@ -119,6 +120,7 @@ const EmployeeGridCard = ({ employee, onView, onEdit, onDelete }) => {
         <h3 className="font-semibold text-gray-900 text-sm truncate">
           {employee.surname}, {employee.first_name}
         </h3>
+        {username && <p className="text-xs text-gray-400 truncate">@{username}</p>}
         <p className="text-xs text-gray-500 truncate">{employee.rank_name}</p>
         <p className="text-xs text-gray-400 truncate mt-1">{employee.department_name}</p>
       </div>
@@ -153,6 +155,7 @@ export default function EmployeeList() {
   const [groupBy, setGroupBy] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [userMap, setUserMap] = useState(new Map());
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const isInitialMount = useRef(true);
@@ -163,6 +166,9 @@ export default function EmployeeList() {
     if (initialLoadRef.current) return;
     initialLoadRef.current = true;
     loadDepartments();
+    db.users.toArray().then(users => {
+      setUserMap(new Map(users.map(u => [u.employeeId, u.username])));
+    });
 
     const deptFilter = searchParams.get('filter');
     if (deptFilter && deptFilter.startsWith('dept-')) {
@@ -467,6 +473,7 @@ export default function EmployeeList() {
               <EmployeeCard
                 key={emp.id}
                 employee={emp}
+                username={userMap.get(emp.id)}
                 onView={(id) => navigate(`/employees/${id}`)}
                 onEdit={(id) => navigate(`/employees/edit/${id}`)}
                 onDelete={setDeleteConfirm}
@@ -488,6 +495,7 @@ export default function EmployeeList() {
                     <EmployeeCard
                       key={emp.id}
                       employee={emp}
+                      username={userMap.get(emp.id)}
                       onView={(id) => navigate(`/employees/${id}`)}
                       onEdit={(id) => navigate(`/employees/edit/${id}`)}
                       onDelete={setDeleteConfirm}
@@ -505,6 +513,7 @@ export default function EmployeeList() {
               <EmployeeGridCard
                 key={emp.id}
                 employee={emp}
+                username={userMap.get(emp.id)}
                 onView={(id) => navigate(`/employees/${id}`)}
                 onEdit={(id) => navigate(`/employees/edit/${id}`)}
                 onDelete={setDeleteConfirm}
@@ -543,6 +552,7 @@ export default function EmployeeList() {
                         )}
                         <span className="text-sm text-gray-900">
                           {emp.surname}, {emp.first_name}
+                          {userMap.get(emp.id) && <span className="text-gray-400 ml-1 text-xs">(@{userMap.get(emp.id)})</span>}
                         </span>
                       </div>
                     </td>
