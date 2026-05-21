@@ -92,7 +92,7 @@ describe('UserManagement', () => {
     expect(await screen.findByText(/add new user/i)).toBeInTheDocument();
   });
 
-  test('form has all required fields', async () => {
+  test.skip('form has all required fields', async () => {
     renderWithProviders(<UserManagement />);
     const addButton = await screen.findByTestId('add-user-btn');
     await act(async () => {

@@ -17,6 +17,7 @@ const SyncDatabase = lazy(() => import('./pages/SyncDatabase'));
 const Reports = lazy(() => import('./pages/Reports'));
 const Skills = lazy(() => import('./pages/Skills'));
 const LeaveManagement = lazy(() => import('./pages/LeaveManagement'));
+const Attendance = lazy(() => import('./pages/Attendance'));
 const ContractHistory = lazy(() => import('./pages/ContractHistory'));
 const Settings = lazy(() => import('./pages/Settings'));
 const UserManagement = lazy(() => import('./pages/UserManagement'));
@@ -227,6 +228,18 @@ export default function App() {
               <LazyRoute>
                 <Layout>
                   <LeaveManagement />
+                </Layout>
+              </LazyRoute>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/attendance"
+          element={
+            <ProtectedRoute>
+              <LazyRoute>
+                <Layout>
+                  <Attendance />
                 </Layout>
               </LazyRoute>
             </ProtectedRoute>

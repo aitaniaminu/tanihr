@@ -1,10 +1,8 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { db } from '../db/indexedDB';
-import { Plus, Search, Calendar, X, Check, Clock, Trash2, Edit, User, Filter, AlertTriangle } from 'lucide-react';
-
-const LEAVE_TYPES = ['Annual', 'Sick', 'Maternity', 'Paternity', 'Study', 'Compassionate', 'AWOL'];
-const LEAVE_STATUS = ['Pending', 'Approved', 'Rejected', 'Cancelled'];
+import { useAuth } from '../context/AuthContext';
+import { Plus, Search, Calendar, X, Check, Clock, User, AlertTriangle, ThumbsDown } from 'lucide-react';
+import { NIGERIAN_HOLIDAYS, getNextWorkingDay } from '../data/nigerianHolidays';
 
 const LEAVE_TYPE_CONFIG = {
   Annual: { daysAllowed: 30, isPaid: true },
@@ -75,6 +73,16 @@ const LeaveRequestCard = ({ request, employeeName, onApprove, onReject, onCancel
         <p className="mt-2 text-sm text-gray-600">{request.reason}</p>
       )}
 
+      {request.rejectionReason && request.status === 'Rejected' && (
+        <div className="mt-2 bg-red-50 border border-red-200 rounded p-2 text-sm text-red-700">
+          <span className="font-medium">Rejection reason:</span> {request.rejectionReason}
+        </div>
+      )}
+
+      {request.approvedBy && request.status === 'Approved' && (
+        <p className="mt-1 text-xs text-gray-400">Approved by {request.approvedBy}</p>
+      )}
+
       {request.status === 'Pending' && (
         <div className="mt-3 pt-3 border-t border-gray-100 flex justify-end gap-2">
           <button
@@ -110,6 +118,9 @@ export default function LeaveManagement() {
   const [showForm, setShowForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [holidays, setHolidays] = useState([]);
+  const [rejectModal, setRejectModal] = useState(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const [roleFilter, setRoleFilter] = useState('all');
 
   const [formData, setFormData] = useState({
     employeeId: '',
@@ -119,7 +130,8 @@ export default function LeaveManagement() {
     reason: '',
   });
 
-  const navigate = useNavigate();
+  const { user, hasPermission } = useAuth();
+  const _isHrOrAdmin = hasPermission('canManageLeave') || user?.roles?.includes('super_admin') || user?.roles?.includes('hr_manager');
 
   const loadData = useCallback(async () => {
     try {
@@ -169,14 +181,30 @@ export default function LeaveManagement() {
           daysAllowed: config.daysAllowed,
           accrualType: 'flat',
           isPaid: config.isPaid,
-          carryOverLimit: config.name === 'Annual' ? 10 : 0,
+          carryOverLimit: name === 'Annual' ? 10 : 0,
         }))
       );
     }
   };
 
+  const seedHolidays = async () => {
+    const existing = await db.publicHolidays.count();
+    if (existing === 0) {
+      await db.publicHolidays.bulkAdd(
+        NIGERIAN_HOLIDAYS.map(h => ({
+          date: h.date,
+          name: h.name,
+          scope: h.scope,
+        }))
+      );
+      const updated = await db.publicHolidays.toArray();
+      setHolidays(updated);
+    }
+  };
+
   useEffect(() => {
     seedLeaveTypes();
+    seedHolidays();
   }, []);
 
   const handleSubmit = async (e) => {
@@ -218,12 +246,29 @@ export default function LeaveManagement() {
   };
 
   const handleApprove = async (id) => {
-    await db.leaveRequests.update(id, { status: 'Approved' });
+    await db.leaveRequests.update(id, {
+      status: 'Approved',
+      approvedBy: user?.username || 'Unknown',
+      approvedAt: new Date().toISOString(),
+    });
     loadData();
   };
 
-  const handleReject = async (id) => {
-    await db.leaveRequests.update(id, { status: 'Rejected' });
+  const openRejectModal = (id) => {
+    setRejectModal(id);
+    setRejectReason('');
+  };
+
+  const handleReject = async () => {
+    if (!rejectModal) return;
+    await db.leaveRequests.update(rejectModal, {
+      status: 'Rejected',
+      rejectionReason: rejectReason || 'No reason provided',
+      rejectedBy: user?.username || 'Unknown',
+      rejectedAt: new Date().toISOString(),
+    });
+    setRejectModal(null);
+    setRejectReason('');
     loadData();
   };
 
@@ -232,11 +277,16 @@ export default function LeaveManagement() {
     loadData();
   };
 
-  const filteredRequests = leaveRequests.filter(r =>
-    r.employeeName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    r.leaveType?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    r.status?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredRequests = leaveRequests
+    .filter(r => {
+      if (roleFilter === 'all') return true;
+      return r.status.toLowerCase() === roleFilter;
+    })
+    .filter(r =>
+      r.employeeName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      r.leaveType?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      r.status?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
   const pendingCount = leaveRequests.filter(r => r.status === 'Pending').length;
   const approvedCount = leaveRequests.filter(r => r.status === 'Approved').length;
@@ -350,6 +400,18 @@ export default function LeaveManagement() {
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
               />
             </div>
+            <select
+              value={roleFilter}
+              onChange={(e) => setRoleFilter(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+              aria-label="Filter by status"
+            >
+              <option value="all">All Status</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -359,8 +421,9 @@ export default function LeaveManagement() {
                 request={request}
                 employeeName={request.employeeName}
                 onApprove={handleApprove}
-                onReject={handleReject}
+                onReject={openRejectModal}
                 onCancel={handleCancel}
+                currentUser={user}
               />
             ))}
           </div>
@@ -409,6 +472,46 @@ export default function LeaveManagement() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {rejectModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-red-700">Reject Leave Request</h2>
+              <button onClick={() => setRejectModal(null)} className="text-gray-400 hover:text-gray-600">
+                <X size={20} />
+              </button>
+            </div>
+            <div>
+              <label htmlFor="reject-reason" className="block text-sm font-medium text-gray-700 mb-2">Reason for rejection *</label>
+              <textarea
+                id="reject-reason"
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
+                rows={3}
+                placeholder="Provide a reason for rejecting this leave request..."
+                required
+              />
+            </div>
+            <div className="flex justify-end gap-3 pt-4">
+              <button
+                onClick={() => setRejectModal(null)}
+                className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleReject}
+                className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition flex items-center gap-2"
+              >
+                <ThumbsDown size={16} />
+                Reject Request
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -491,31 +594,36 @@ export default function LeaveManagement() {
                 />
               </div>
 
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">
+                <p className="font-medium mb-1">Next working day after end date:</p>
+                <p>{formData.endDate ? getNextWorkingDay(new Date(formData.endDate + 'T12:00:00'), holidays) : 'Set an end date to calculate'}</p>
+              </div>
+
               <div className="flex justify-end gap-3 pt-4">
-          <button
-            type="button"
-            onClick={() => {
-              setShowForm(false);
-              setFormData({
-                employeeId: '',
-                leaveType: 'Annual',
-                startDate: '',
-                endDate: '',
-                reason: '',
-              });
-            }}
-            className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
-            data-testid="cancel-form"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
-            data-testid="submit-request"
-          >
-            Submit Request
-          </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowForm(false);
+                    setFormData({
+                      employeeId: '',
+                      leaveType: 'Annual',
+                      startDate: '',
+                      endDate: '',
+                      reason: '',
+                    });
+                  }}
+                  className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+                  data-testid="cancel-form"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+                  data-testid="submit-request"
+                >
+                  Submit Request
+                </button>
               </div>
             </form>
           </div>

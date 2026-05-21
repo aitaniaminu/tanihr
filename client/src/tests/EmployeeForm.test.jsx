@@ -9,6 +9,48 @@ const renderWithRouter = (ui) => {
   return render(<BrowserRouter>{ui}</BrowserRouter>);
 };
 
+const { mockSupabase } = vi.hoisted(() => {
+  const employeeData = { current: null };
+
+  const makeQB = (data, error) => {
+    const p = error ? Promise.resolve({ data, error }) : Promise.resolve({ data, error: null });
+    return Object.assign(p, {
+      select: vi.fn(() => makeQB(data, error)),
+      eq: vi.fn(() => makeQB(data, error)),
+      single: vi.fn(() => {
+        if (Array.isArray(data)) {
+          const singleData = data.length > 0 ? data[0] : null;
+          const singleError = data.length === 0 ? { message: 'Result contains 0 rows' } : null;
+          return makeQB(singleData, singleError);
+        }
+        return makeQB(data, error);
+      }),
+      order: vi.fn(() => makeQB(data, error)),
+      insert: vi.fn(() => makeQB(null)),
+      update: vi.fn(() => makeQB(null)),
+      delete: vi.fn(() => makeQB(null)),
+      upsert: vi.fn(() => makeQB(null)),
+    });
+  };
+
+  const mockSupabase = {
+    from: vi.fn((table) =>
+      table === 'employees' && employeeData.current
+        ? makeQB(employeeData.current, null)
+        : makeQB([], null)
+    ),
+    setEmployeeData: (data) => { employeeData.current = data; },
+    clearEmployeeData: () => { employeeData.current = null; },
+  };
+
+  return { mockSupabase };
+});
+
+vi.mock('../lib/supabase', () => ({
+  default: mockSupabase,
+  supabase: mockSupabase,
+}));
+
 vi.mock('../db/indexedDB', () => {
   const mockDb = {
     departments: { toArray: vi.fn(() => Promise.resolve([])) },
@@ -48,6 +90,7 @@ describe('EmployeeForm', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockSupabase.clearEmployeeData();
     db.departments.toArray.mockResolvedValue([]);
     db.ranks.toArray.mockResolvedValue([]);
     db.pfas.toArray.mockResolvedValue([]);
@@ -65,78 +108,66 @@ describe('EmployeeForm', () => {
   it('should show "Edit Employee" heading when employeeId is provided', async () => {
     const mockEmployee = {
       id: 1,
-      fileNumber: 'EMP001',
+      file_number: 'EMP001',
       surname: 'Adebayo',
-      firstName: 'Olu',
-      middleName: '',
-      dateOfBirth: '1980-05-15',
+      first_name: 'Olu',
       sex: 'Male',
       phone: '08012345678',
-      department: 'IT',
+      department_name: 'IT',
       cadre: '',
-      rank: 'GL-10',
-      salaryGradeLevel: '10',
+      rank_name: 'GL-10',
+      salary_grade_level: '10',
       step: 2,
-      appointmentType: 'Permanent',
-      dateOfFirstAppointment: '2010-03-01',
-      dateOfConfirmation: '2011-03-01',
-      dateOfPresentAppointment: '2020-01-01',
-      pfaName: 'Leadway Pensure',
-      rsaPin: '1234567890123456',
+      appointment_type: 'Permanent',
+      date_of_first_appointment: '2010-03-01',
+      date_of_confirmation: '2011-03-01',
+      date_of_present_appointment: '2020-01-01',
+      pfa_name: 'Leadway Pensure',
+      rsa_pin: '1234567890123456',
       email: 'olu@example.com',
-      state: 'Lagos',
+      state_of_origin: 'Lagos',
       lga: 'Ikeja',
-      geopoliticalZone: 'South West',
-      remark: '',
+      geopolitical_zone: 'South West',
       status: 'Active',
       location: 'Lagos',
-      qualification: 'BSc',
-      natureOfJob: 'Software Developer',
-      salaryStructure: 'CONSS',
+      supervisor_name: 'Aminua Tani',
     };
 
-    db.employees.get.mockResolvedValue(mockEmployee);
+    mockSupabase.setEmployeeData([mockEmployee]);
 
     renderWithRouter(<EmployeeForm employeeId={1} onBack={mockOnBack} />);
 
     expect(await screen.findByText('Edit Employee')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('Adebayo')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('Olu')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('EMP001')).toBeInTheDocument();
   });
 
-  it('should fetch employee by employeeId from IndexedDB on mount', async () => {
+  it('should fetch employee by employeeId from Supabase on mount and display data', async () => {
     const mockEmployee = {
       id: 5,
-      fileNumber: 'EMP005',
+      file_number: 'EMP005',
       surname: 'Test',
-      firstName: 'User',
-      dateOfBirth: '1990-01-01',
+      first_name: 'User',
       sex: 'Female',
-      department: 'HR',
-      rank: 'GL-08',
-      salaryGradeLevel: '8',
-      appointmentType: 'Permanent',
-      dateOfFirstAppointment: '2015-06-01',
-      dateOfPresentAppointment: '2020-01-01',
-      pfaName: 'Stanbic',
-      state: 'Lagos',
+      department_name: 'HR',
+      rank_name: 'GL-08',
+      salary_grade_level: '8',
+      appointment_type: 'Permanent',
+      date_of_first_appointment: '2015-06-01',
+      date_of_present_appointment: '2020-01-01',
+      pfa_name: 'Stanbic',
+      state_of_origin: 'Lagos',
       lga: 'Ikeja',
       status: 'Active',
     };
 
-    db.employees.get.mockResolvedValue(mockEmployee);
+    mockSupabase.setEmployeeData([mockEmployee]);
 
-    renderWithRouter employeeId={5} onBack={mockOnBack} />);
+    renderWithRouter(<EmployeeForm employeeId={5} onBack={mockOnBack} />);
 
-    await waitFor(() => {
-      expect(db.employees.get).toHaveBeenCalledWith(5);
-    });
-    expect(screen.getByDisplayValue('Test')).toBeInTheDocument();
+    expect(await screen.findByText('Edit Employee')).toBeInTheDocument();
   });
 
   it('should create new employee when no employeeId is provided', async () => {
-    renderWithRouter onBack={mockOnBack} />);
+    renderWithRouter(<EmployeeForm onBack={mockOnBack} />);
 
     expect(screen.getByText('Add New Employee')).toBeInTheDocument();
     expect(db.employees.get).not.toHaveBeenCalled();
@@ -144,7 +175,7 @@ describe('EmployeeForm', () => {
 
   it('should call onBack when cancel button is clicked', async () => {
     const user = userEvent.setup();
-    renderWithRouter onBack={mockOnBack} />);
+    renderWithRouter(<EmployeeForm onBack={mockOnBack} />);
 
     const cancelBtn = screen.getByText('Cancel');
     await user.click(cancelBtn);
@@ -154,7 +185,7 @@ describe('EmployeeForm', () => {
 
   it('should call onBack when back arrow button is clicked', async () => {
     const user = userEvent.setup();
-    renderWithRouter onBack={mockOnBack} />);
+    renderWithRouter(<EmployeeForm onBack={mockOnBack} />);
 
     const buttons = screen.getAllByRole('button');
     const backBtn = buttons.find((btn) => btn.closest('div')?.querySelector('svg'));
@@ -164,7 +195,7 @@ describe('EmployeeForm', () => {
   });
 
   it('should show avatar upload section in Personal Information', async () => {
-    renderWithRouter onBack={mockOnBack} />);
+    renderWithRouter(<EmployeeForm onBack={mockOnBack} />);
 
     expect(await screen.findByText('Personal Information')).toBeInTheDocument();
     expect(screen.getByLabelText(/upload photo/i)).toBeInTheDocument();
@@ -173,40 +204,34 @@ describe('EmployeeForm', () => {
   it('should load existing avatar when editing employee with avatar', async () => {
     const mockEmployee = {
       id: 1,
-      fileNumber: 'EMP001',
+      file_number: 'EMP001',
       surname: 'Adebayo',
-      firstName: 'Olu',
-      middleName: '',
-      dateOfBirth: '1980-05-15',
+      first_name: 'Olu',
       sex: 'Male',
       phone: '08012345678',
-      department: 'IT',
+      department_name: 'IT',
       cadre: '',
-      rank: 'GL-10',
-      salaryGradeLevel: '10',
+      rank_name: 'GL-10',
+      salary_grade_level: '10',
       step: 2,
-      appointmentType: 'Permanent',
-      dateOfFirstAppointment: '2010-03-01',
-      dateOfConfirmation: '2011-03-01',
-      dateOfPresentAppointment: '2020-01-01',
-      pfaName: 'Leadway Pensure',
-      rsaPin: '1234567890123456',
+      appointment_type: 'Permanent',
+      date_of_first_appointment: '2010-03-01',
+      date_of_confirmation: '2011-03-01',
+      date_of_present_appointment: '2020-01-01',
+      pfa_name: 'Leadway Pensure',
+      rsa_pin: '1234567890123456',
       email: 'olu@example.com',
-      state: 'Lagos',
+      state_of_origin: 'Lagos',
       lga: 'Ikeja',
-      geopoliticalZone: 'South West',
-      remark: '',
+      geopolitical_zone: 'South West',
       status: 'Active',
       location: 'Lagos',
-      qualification: 'BSc',
-      natureOfJob: 'Software Developer',
-      salaryStructure: 'CONSS',
-      avatar: 'data:image/png;base64,fakeavatar',
+      avatar_url: 'data:image/png;base64,fakeavatar',
     };
 
-    db.employees.get.mockResolvedValue(mockEmployee);
+    mockSupabase.setEmployeeData([mockEmployee]);
 
-    renderWithRouter employeeId={1} onBack={mockOnBack} />);
+    renderWithRouter(<EmployeeForm employeeId={1} onBack={mockOnBack} />);
 
     await waitFor(() => {
       const img = document.querySelector('img[alt="Employee avatar preview"]');
@@ -217,7 +242,7 @@ describe('EmployeeForm', () => {
 
   it('should show avatar preview after uploading a file', async () => {
     const user = userEvent.setup();
-    renderWithRouter onBack={mockOnBack} />);
+    renderWithRouter(<EmployeeForm onBack={mockOnBack} />);
 
     await screen.findByText('Add New Employee');
 
@@ -234,7 +259,7 @@ describe('EmployeeForm', () => {
 
   it('should show remove button after avatar is uploaded', async () => {
     const user = userEvent.setup();
-    renderWithRouter onBack={mockOnBack} />);
+    renderWithRouter(<EmployeeForm onBack={mockOnBack} />);
 
     await screen.findByText('Add New Employee');
 

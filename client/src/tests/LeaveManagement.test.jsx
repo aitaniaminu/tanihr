@@ -39,6 +39,8 @@ vi.mock('../db/indexedDB', () => {
       },
       publicHolidays: {
         toArray: vi.fn(() => Promise.resolve(mockHolidays)),
+        count: vi.fn(() => Promise.resolve(mockHolidays.length)),
+        bulkAdd: vi.fn(() => Promise.resolve()),
       },
     },
   };
@@ -46,8 +48,10 @@ vi.mock('../db/indexedDB', () => {
 
 vi.mock('../context/AuthContext', () => ({
   useAuth: vi.fn(() => ({
-    user: { username: 'admin', role: 'Super Admin' },
+    user: { username: 'admin', role: 'Super Admin', roles: ['super_admin'] },
     loading: false,
+    hasPermission: vi.fn(() => true),
+    isSuperAdmin: true,
   })),
   AuthProvider: ({ children }) => children,
 }));
@@ -165,5 +169,52 @@ describe('LeaveManagement', () => {
     fireEvent.click(await screen.findByRole('button', { name: /public holidays/i }));
     expect(await screen.findByText(/new year.*day/i)).toBeInTheDocument();
     expect(await screen.findByText(/christmas day/i)).toBeInTheDocument();
+  });
+
+  test('shows rejection reason modal on reject click', async () => {
+    renderWithProviders(<LeaveManagement />);
+    const rejectButtons = await screen.findAllByText('Reject');
+    fireEvent.click(rejectButtons[0]);
+    expect(await screen.findByText(/reason for rejection/i)).toBeInTheDocument();
+  });
+
+  test('status filter dropdown is present', async () => {
+    renderWithProviders(<LeaveManagement />);
+    expect(await screen.findByRole('combobox', { name: /filter by status/i })).toBeInTheDocument();
+  });
+
+  test('shows next working day info in form', async () => {
+    renderWithProviders(<LeaveManagement />);
+    fireEvent.click(await screen.findByTestId('request-leave-btn'));
+    expect(await screen.findByText(/next working day/i)).toBeInTheDocument();
+  });
+
+  test('rejects leave with reason', async () => {
+    renderWithProviders(<LeaveManagement />);
+    const rejectButtons = await screen.findAllByText('Reject');
+    fireEvent.click(rejectButtons[0]);
+    const textarea = await screen.findByRole('textbox', { name: /reason for rejection/i });
+    await userEvent.type(textarea, 'Insufficient documentation');
+    fireEvent.click(screen.getByText('Reject Request'));
+    const { db } = await import('../db/indexedDB');
+    await waitFor(() => {
+      expect(db.leaveRequests.update).toHaveBeenCalledWith('req-1', expect.objectContaining({
+        status: 'Rejected',
+        rejectionReason: 'Insufficient documentation',
+      }));
+    });
+  });
+
+  test('approve updates status and tracks approver', async () => {
+    renderWithProviders(<LeaveManagement />);
+    const approveButtons = await screen.findAllByText('Approve');
+    fireEvent.click(approveButtons[0]);
+    const { db } = await import('../db/indexedDB');
+    await waitFor(() => {
+      expect(db.leaveRequests.update).toHaveBeenCalledWith('req-1', expect.objectContaining({
+        status: 'Approved',
+        approvedBy: 'admin',
+      }));
+    });
   });
 });
