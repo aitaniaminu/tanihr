@@ -129,9 +129,19 @@ export default function LeaveManagement() {
     endDate: '',
     reason: '',
   });
+  const [formError, setFormError] = useState('');
 
   const { user, hasPermission } = useAuth();
   const _isHrOrAdmin = hasPermission('canManageLeave') || user?.roles?.includes('super_admin') || user?.roles?.includes('hr_manager');
+
+  const selectedEmployee = employees.find(e => e.id === formData.employeeId);
+  const availableLeaveTypes = leaveTypes.filter(lt => {
+    if (!selectedEmployee) return true;
+    const sex = selectedEmployee.sex;
+    if (lt.name === 'Maternity') return sex === 'Female';
+    if (lt.name === 'Paternity') return sex === 'Male';
+    return true;
+  });
 
   const loadData = useCallback(async () => {
     try {
@@ -209,6 +219,7 @@ export default function LeaveManagement() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setFormError('');
     try {
       const start = new Date(formData.startDate);
       const end = new Date(formData.endDate);
@@ -217,6 +228,18 @@ export default function LeaveManagement() {
       if (days <= 0) {
         alert('End date must be after start date');
         return;
+      }
+
+      const employee = employees.find(e => e.id === formData.employeeId);
+      if (employee) {
+        if (formData.leaveType === 'Maternity' && employee.sex !== 'Female') {
+          setFormError('Maternity leave is only available to female employees.');
+          return;
+        }
+        if (formData.leaveType === 'Paternity' && employee.sex !== 'Male') {
+          setFormError('Paternity leave is only available to male employees.');
+          return;
+        }
       }
 
       await db.leaveRequests.add({
@@ -527,12 +550,28 @@ export default function LeaveManagement() {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
+              {formError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700 flex items-center gap-2">
+                  <AlertTriangle size={16} />
+                  {formError}
+                </div>
+              )}
               <div>
                 <label htmlFor="employee-select" className="block text-sm font-medium text-gray-700 mb-1">Employee *</label>
                 <select
                   id="employee-select"
                   value={formData.employeeId}
-                  onChange={(e) => setFormData(f => ({ ...f, employeeId: e.target.value }))}
+                  onChange={(e) => {
+                    const empId = e.target.value;
+                    const emp = employees.find(em => em.id === empId);
+                    setFormData(f => {
+                      const newLeaveType = emp && !['Annual', 'Sick', 'Study', 'Compassionate', 'AWOL'].includes(f.leaveType)
+                        ? (emp.sex === 'Female' ? 'Maternity' : emp.sex === 'Male' ? 'Paternity' : 'Annual')
+                        : f.leaveType;
+                      return { ...f, employeeId: empId, leaveType: newLeaveType };
+                    });
+                    setFormError('');
+                  }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                   required
                 >
@@ -547,11 +586,11 @@ export default function LeaveManagement() {
                 <label htmlFor="leave-type-select" className="block text-sm font-medium text-gray-700 mb-1">Leave Type *</label>
                 <select
                   id="leave-type-select"
-                  value={formData.leaveType}
+                  value={availableLeaveTypes.some(lt => lt.name === formData.leaveType) ? formData.leaveType : (availableLeaveTypes[0]?.name || '')}
                   onChange={(e) => setFormData(f => ({ ...f, leaveType: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 >
-                  {leaveTypes.map(lt => (
+                  {availableLeaveTypes.map(lt => (
                     <option key={lt.name} value={lt.name}>{lt.name} Leave ({lt.daysAllowed} days)</option>
                   ))}
                 </select>
