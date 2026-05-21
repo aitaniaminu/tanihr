@@ -13,7 +13,7 @@ export function parseDDMMYYYY(dateString) {
   if (!str) return null;
 
   // Try DD-MM-YYYY
-  let match = str.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/);
+  let match = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
   if (match) {
     let [, day, month, year] = match;
     day = parseInt(day);
@@ -33,7 +33,7 @@ export function parseDDMMYYYY(dateString) {
   }
 
   // Try YYYY-MM-DD
-  match = str.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})$/);
+  match = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
   if (match) {
     const [, year, month, day] = match;
     const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));

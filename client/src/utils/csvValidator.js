@@ -6,7 +6,6 @@ import {
   toISODate,
   calculateRetirementDate,
   getRetirementStatus,
-  isAtLeast18Years,
 } from '../utils/dateHelpers';
 import { getLGAsForState, getGeoPoliticalZone } from '../data/nigerianData';
 
@@ -81,9 +80,9 @@ export async function validateAndImport(rows) {
   const existingRanks = await db.ranks.toArray();
   const existingPFAs = await db.pfas.toArray();
 
-  const departmentNames = new Set(existingDepartments.map((d) => d.name.toLowerCase()));
-  const rankNames = new Set(existingRanks.map((r) => r.name.toLowerCase()));
-  const pfaNames = new Set(existingPFAs.map((p) => p.name.toLowerCase()));
+  const _departmentNames = new Set(existingDepartments.map((d) => d.name.toLowerCase()));
+  const _rankNames = new Set(existingRanks.map((r) => r.name.toLowerCase()));
+  const _pfaNames = new Set(existingPFAs.map((p) => p.name.toLowerCase()));
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];

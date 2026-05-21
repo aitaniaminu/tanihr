@@ -1,5 +1,3 @@
-import { formatDDMMYYYY } from './dateHelpers';
-
 export const SUPABASE_TO_DISPLAY_FIELDS = {
   first_name: 'firstName',
   middle_name: 'middleName',

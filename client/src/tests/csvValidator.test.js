@@ -215,7 +215,7 @@ describe('csvValidator', () => {
         },
       ];
 
-      const result = await importValidRecords(validRows);
+      const _result = await importValidRecords(validRows);
 
       expect(db.transaction).toHaveBeenCalled();
       expect(db.employees.add).toHaveBeenCalled();

@@ -331,20 +331,20 @@ function setupDexieHooks() {
     salary_structures: { table: db.salaryStructures, supabaseTable: 'salary_structures', toSupabase: (s) => ({ name: s.name }), conflictKey: 'name' },
   };
 
-  Object.entries(hookTableMap).forEach(([key, config]) => {
-    config.table.hook('creating', function (primKey, obj, trans) {
+  Object.entries(hookTableMap).forEach(([_key, config]) => {
+    config.table.hook('creating', function (primKey, obj, _trans) {
       if (!isSyncingFromSupabase && isOnline) {
         queueSyncToSupabase(config.supabaseTable, obj, 'upsert', config.toSupabase, config.conflictKey);
       }
     });
 
-    config.table.hook('updating', function (modifications, primKey, obj, trans) {
+    config.table.hook('updating', function (modifications, primKey, obj, _trans) {
       if (!isSyncingFromSupabase && isOnline) {
         queueSyncToSupabase(config.supabaseTable, { ...obj, ...modifications }, 'upsert', config.toSupabase, config.conflictKey);
       }
     });
 
-    config.table.hook('deleting', function (primKey, obj, trans) {
+    config.table.hook('deleting', function (primKey, obj, _trans) {
       if (!isSyncingFromSupabase && isOnline) {
         queueSyncToSupabase(config.supabaseTable, obj, 'delete', config.toSupabase, config.conflictKey);
       }
